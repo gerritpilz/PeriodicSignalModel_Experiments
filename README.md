@@ -1,3 +1,4 @@
+# Periodic Signal Model
 ## Overview
 
 Time series analysis plays a central role in a wide range of applications, where modeling complex temporal variations remains a fundamental challenge. Directly learning these variations from one‑dimensional sequences is difficult due to intricate temporal patterns. 
