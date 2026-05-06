@@ -1,3 +1,17 @@
+**Overview**
+Time series analysis plays a central role in a wide range of applications, where modeling complex temporal variations remains a fundamental challenge. Directly learning these variations from one‑dimensional sequences is difficult due to overlapping and multi‑scale temporal patterns.
+
+Motivated by the observation that many time series exhibit multiple underlying periodic structures, the temporal dynamics are decomposed into intra‑periodic variations (within a single cycle) and inter‑periodic variations (across aligned cycles). To better expose these structures, the one‑dimensional time series is transformed into a set of two‑dimensional representations based on dominant periods, where rows and columns explicitly encode the two types of variation.
+
+This representation enables complex temporal patterns to be modeled more effectively using two‑dimensional operations while remaining applicable across different time‑series analysis tasks. The resulting framework serves as a general backbone for extracting rich temporal features from periodic and quasi‑periodic signals.
+
+
+
+
+
+
+
+
 **Model Description**
 
 The architecture of the model is designed to analyze time series based on their periodic structures. To this end, both variations in the immediate temporal neighborhood (intra‑periodic) and variations at the same phase across multiple periods (inter‑periodic) are examined. Conventional analysis methods typically restrict themselves to the one‑dimensional temporal structure, thereby primarily capturing intra‑periodic deviations. In order to reliably identify inter‑periodic changes as well, the model transforms one‑dimensional time series corresponding to selected periods into a two‑dimensional structure that represents these variations.
