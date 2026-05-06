@@ -29,3 +29,6 @@ Attention scores are computed by dividing the 2D time sequence into independent 
 After processing by the Transformer block, the 2D time sequence is reshaped back into its original 1D form and then passed through a conventional MLP block. Once this procedure has been completed for all dominant periods, the resulting 1D time series are combined into a single overall sequence using an adaptive aggregation mechanism. The instantaneous amplitudes are converted into time‑dependent weights via a softmax operation over the period dimension. These weights scale the period‑specific representations according to their relevance at each time step. These scaled representations are then summed into a single unified sequence. The resulting sequence is fed into the next iteration of the block until all blocks are processed. The final output can then be used for downstream tasks, such as computing prediction logits.
 
 ## Tasks and Use Case
+
+The proposed architecture is designed as a general representation learning framework for time series analysis. It supports a range of downstream tasks, including forecasting, imputation, classification, and anomaly detection.
+
