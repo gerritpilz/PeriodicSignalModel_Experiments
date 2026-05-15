@@ -85,7 +85,7 @@ val_data = (val_data - mean) / std
 # Dataset, Dataloader
 train_dataset = weatherDataset(train_data, seq_len)
 val_dataset = weatherDataset(val_data, seq_len)
-train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)   # samples as many as possible (B, T, C) chunks from train_dataset (with getitem) -> one epoch
+train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)  
 val_loader = DataLoader(val_dataset, batch_size=batch_size)
 
 # create model
