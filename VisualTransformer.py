@@ -94,7 +94,7 @@ class multi_head(nn.Module):
         M_grid, N_grid = M_idx[:, None], N_idx[None, :]
         freq_off = rearrange(freq_off, 'b m n c -> b 1 m n c')  # add n_head dim
 
-        Q = Q * freq_off[..., M_grid, N_grid, :self.d_head] + freq_off[..., M_grid, N_grid, self.d_head:]
+        Q = Q * freq_off[..., M_grid, N_grid, :self.d_head] + freq_off[..., M_grid, N_grid, self.d_head:] # Film
         Q = self.Rope(Q, M_idx, N_idx)
         queries = rearrange(Q, 'b h (Mw sw1) (Nw sw2) c -> b h Mw Nw (sw1 sw2) c', sw1=self.s_win, sw2=self.s_win)
 
@@ -107,11 +107,13 @@ class multi_head(nn.Module):
             pooled_mask_l = rearrange(pooled_masks[l], 'b m n c -> b 1 m n c')  # add n_head dim
 
             # frequency and Rope Embedding for Keys
+            K[l] = K[l] * freq_off[..., M_grid, N_grid, :self.d_head] + freq_off[..., M_grid, N_grid, self.d_head:]  # Film
             M_idx = torch.arange(K[l].shape[-3], device='cuda')
             N_idx = torch.arange(K[l].shape[-2], device='cuda')
-            M_grid_stretch = M_idx[:, None] * self.s_pool[l]
-            N_grid_stretch = N_idx[None, :] * self.s_pool[l]
-            K[l] = K[l] * freq_off[..., M_grid_stretch, N_grid_stretch, :self.d_head] + freq_off[..., M_grid_stretch, N_grid_stretch, self.d_head:]
+
+            #M_grid_stretch = M_idx[:, None] * self.s_pool[l]
+            #N_grid_stretch = N_idx[None, :] * self.s_pool[l]
+            #K[l] = K[l] * freq_off[..., M_grid_stretch, N_grid_stretch, :self.d_head] + freq_off[..., M_grid_stretch, N_grid_stretch, self.d_head:] # Film
             K[l] = self.Rope(K[l], M_idx * self.s_pool, N_idx * self.s_pool)
 
             # correct window centers by pooling
