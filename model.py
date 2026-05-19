@@ -150,8 +150,8 @@ class block(nn.Module):
 
         amp_t = cupy.asnumpy(amp_t)
         freq_offset = cupy.asnumpy(freq_offset)
-        amp_t = torch.from_numpy(amp_t).to('cuda')
-        freq_offset = torch.from_numpy(freq_offset).to('cuda')
+        amp_t = torch.from_numpy(amp_t).float().to('cuda')
+        freq_offset = torch.from_numpy(freq_offset).float().to('cuda')
 
         freq_offset = F.pad(freq_offset, (0, 0, 1, 0)) # add time step that got lost at np.diff -> (T, C)
         return amp_t, freq_offset

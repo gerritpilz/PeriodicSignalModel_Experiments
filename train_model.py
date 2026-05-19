@@ -68,7 +68,7 @@ def estimate_loss():
     return out
 
 # read file
-file = pd.read_csv('../weather_prediction_dataset.csv', usecols=range(104, 114)) #  munich weather data
+file = pd.read_csv('weather_prediction_dataset.csv', usecols=range(104, 114)) #  munich weather data
 
 # Train and test splits
 data = torch.tensor(file.values, dtype=torch.float32)  # (T, C)
