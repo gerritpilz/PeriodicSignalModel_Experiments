@@ -1,1 +1,38 @@
-# PeriodicSignalModel
+# Periodic Signal Model
+
+## Overview
+
+Time series analysis plays a central role in a wide range of applications, where modeling complex temporal variations remains a fundamental challenge. Directly learning these variations from one‑dimensional sequences is difficult due to intricate temporal patterns. 
+
+Motivated by the observation that many time series exhibit multiple underlying periodic structures, the temporal dynamics are decomposed into intra‑periodic variations (within a single peroid) and inter‑periodic variations (across periods at the same phase). To better expose these structures, the one‑dimensional time series is transformed into a set of two‑dimensional representations based on dominant periods, where rows and columns explicitly encode the two types of variation. This transformation embeds intra‑periodic and inter‑periodic variations into the columns and rows of the 2D tensors, respectively.
+
+The resulting 2D-representations are then processed by a vision-Transformer, which captures the relevant temporal patterns and reduces each 2D tensor to a compact and informative 1D representation. The resulting 1D sequences are then combined into a single unified sequence, while taking into account the time‑dependent importance of each component using an adaptive weighting method.
+
+The resulting one‑dimensional sequence captures the relevant information of the original signal and can be used for different time series analysis tasks, including forecasting, classification, and anomaly detection. In this work, the model is applied to forecasting weather time series.
+
+
+## Model Architecture
+
+Following the approach described above, the 1D time series data is transformed into  2D tensors that represent both intra- and interperiodic variations.
+Specifically, a Fourier transform is applied to the input sequence to determine a fixed number of frequencies with the highest amplitudes. For each of these dominant frequencies, the time series is then segmented into intervals corresponding to the respective period length, which are arranged row‑wise. In this 2D representation, the rows capture variations within a single period, while the columns describe variations at identical phase positions across multiple periods.
+
+However, the architecture described in the TimesNet paper (https://arxiv.org/abs/2210.02186) does not take into account an important factor, namely variations in both the oscillation period and amplitude over time. For this reason, I extended the model by introducing a filter block that captures variations of this kind. Specifically, for each dominant frequency, the original time series is passed through a band‑pass filter, yielding a narrow‑band oscillatory component centered around the respective frequency. A Hilbert transform is then applied to this oscillatory mode to obtain the analytic signal, from which the time‑dependent instantaneous frequency and amplitude within the filter band can be derived. By subtracting the instantaneous frequency from the center frequency of the band‑pass filter, an approximation of the time‑dependent frequency deviation of the isolated oscillation from the corresponding center frequency is obtained. This instantaneous frequency deviation, together with the instantaneous amplitude, is incorporated into the subsequent processing stages of the model.
+
+The next stage of the model architecture consists of processing the two‑dimensional sequence data using a Vision Transformer inspired by the concepts described in the paper **Focal Self‑Attention** (https://arxiv.org/pdf/2107.00641). The motivation for this approach lies in the quadratic complexity of standard Transformer architectures, which constitutes a bottleneck particularly for large sequence lengths.
+
+The implemented Transformer follows a hierarchical design in which different context sizes are considered at each pooling level. Specifically, for a given dominant period, the corresponding 2D time sequence is pooled with a fixed pooling factor at each level. Based on these pooled sequences, the Keys and Values are computed, whereas the Queries are generated exclusively from the original unpooled 2D tensor. 
+
+At this point, the previously computed instantaneous frequency deviation becomes relevant. A **FiLM (Feature‑wise Linear Modulation)** layer is used to adapt the Query and Key vectors based on the instantaneous frequency deviation from the dominant frequency (https://arxiv.org/abs/1709.07871).
+
+The positions of the Query and Key vectors within the 2D sequence are encoded using **Rotary Positional Encoding (RoPE)**, as described in the corresponding literature (https://arxiv.org/pdf/2104.09864). In simplified terms, each vector is decomposed into 2D pairs, which are then rotated by a specific angle in the 2D plane. This rotation angle depends both on the position of the pair within the vector and on the position of the vector within the 2D sequence itself. In this way, the position of the vector in the sequence can be encoded at different granularity levels across the different vector segments. A key advantage of the RoPE method for this application is that positional encoding is not tied to a fixed image size, but can instead be scaled flexibly to different heights and widths depending on the period length.
+
+Attention scores are computed by dividing the 2D time sequence into independent windows. For each window, the Query is taken directly from the corresponding region of the original representation. The Keys and Values, however, are obtained from previously pooled 2D representations. For each pooling level, a designated region surrounding the window center is extracted from the pooled Key and Value tensors. These regions are concatenated along a spatial dimension to form the Key/Value tensor, after which attention is computed using the standard attention mechanism.
+
+After processing by the Transformer block, the 2D time sequence is reshaped back into its original 1D form and then passed through a conventional MLP block. Once this procedure has been completed for all dominant periods, the resulting 1D time series are combined into a single overall sequence using an adaptive aggregation mechanism. The instantaneous amplitudes are converted into time‑dependent weights via a softmax operation over the period dimension. These weights scale the period‑specific representations according to their relevance at each time step. These scaled representations are then summed into a single unified sequence. The resulting sequence is fed into the next iteration of the block until all blocks are processed. The final output can then be used for downstream tasks, such as computing prediction logits.
+
+
+## Tasks and Use Case
+
+The proposed architecture is designed as a general representation learning framework for time series analysis. It supports a range of downstream tasks, including forecasting, imputation, classification, and anomaly detection.
+
+In this work, the framework is applied to weather time series forecasting. Multiple variables are modeled simultaneously, allowing the joint prediction of channels such as temperature, humidity, and related meteorological signals.

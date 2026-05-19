@@ -6,13 +6,12 @@ from model import model
 
 # hyperparameters
 n_channels = 10
-
 seq_len = 64
 batch_size = 8
 d_embd = 64
 dropout = 0.2
 
-# timesNet
+# model
 n_timeBlocks = 4
 k_periods = 4
 
@@ -85,7 +84,7 @@ val_data = (val_data - mean) / std
 # Dataset, Dataloader
 train_dataset = weatherDataset(train_data, seq_len)
 val_dataset = weatherDataset(val_data, seq_len)
-train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)   # samples as many as possible (B, T, C) chunks from train_dataset (with getitem) -> one epoch
+train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)  
 val_loader = DataLoader(val_dataset, batch_size=batch_size)
 
 # create model
