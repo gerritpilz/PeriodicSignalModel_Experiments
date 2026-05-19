@@ -110,10 +110,6 @@ class multi_head(nn.Module):
             K_l = K_l * freq_off[..., M_grid, N_grid, :self.d_head] + freq_off[..., M_grid, N_grid, self.d_head:]  # Film
             M_idx = torch.arange(K[l].shape[-3], device='cuda')
             N_idx = torch.arange(K[l].shape[-2], device='cuda')
-
-            #M_grid_stretch = M_idx[:, None] * self.s_pool[l]
-            #N_grid_stretch = N_idx[None, :] * self.s_pool[l]
-            #K[l] = K[l] * freq_off[..., M_grid_stretch, N_grid_stretch, :self.d_head] + freq_off[..., M_grid_stretch, N_grid_stretch, self.d_head:] # Film
             K_l = self.Rope(K_l, M_idx * self.s_pool, N_idx * self.s_pool)
 
             # correct window centers by pooling
@@ -248,7 +244,7 @@ class block(nn.Module):
         # Layer-Norm 1
         feature_map = self.ln1(feature_map_in)
 
-        # pool feature map
+        # pool feature map and freq_off
         pooled_maps, pooled_masks = self.pool(feature_map, mask)
 
         # pad feature map for window alignment
