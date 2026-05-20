@@ -13,8 +13,6 @@ class pool(nn.Module):
         self.s_pool = s_pool
 
     def forward(self, feature_map, mask):
-        feature_map = feature_map * mask  # ensure invalid entries are zero (for safety, attention masking should also ensure this)
-        print("after mask std:", feature_map.std().item())
 
         # Level 1
         pooled_maps = [feature_map]

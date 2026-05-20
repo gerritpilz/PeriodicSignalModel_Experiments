@@ -8,7 +8,7 @@ from model import model
 n_channels = 10
 seq_len = 64
 pred_len = 32
-batch_size = 2
+batch_size = 4
 d_embd = 64
 dropout = 0.2
 
