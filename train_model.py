@@ -6,14 +6,14 @@ from model import model
 
 # hyperparameters
 n_channels = 10
-seq_len = 64
+seq_len = 128
 pred_len = 32
-batch_size = 4
+batch_size = 16
 d_embd = 64
 dropout = 0.2
 
 # model
-n_timeBlocks = 6
+n_timeBlocks = 8
 k_periods = 6
 
 # filter

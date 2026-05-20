@@ -67,6 +67,7 @@ class block(nn.Module):
         self.ffwd = FeedForward(d_embd, dropout)
         self.film_mlp = film_mlp(d_embd, d_embd, dropout)
         self.times_conv = TimesBlockConv(d_embd)
+        self.ffwd_amps = FeedForward(d_embd, dropout)
 
         self.seq_len = seq_len
         self.k_periods = k_periods
@@ -150,6 +151,7 @@ class block(nn.Module):
         timeframes_1d = self.ffwd(timeframes_1d)
 
         # Adaptive Aggregation
+        amps = self.ffwd_amps(amps)
         amps = F.softmax(amps, dim=1)         # (B, k, T, C) -> softmax across k
         timeframes_1d = timeframes_1d * amps  # (B, k, T, C)
         deltaX = timeframes_1d.sum(dim=1)     # sum across k -> (B, T, C)
