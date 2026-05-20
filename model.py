@@ -32,12 +32,42 @@ class film_mlp(nn.Module):
     def forward(self, x):
         return self.net(x)
 
+
+class TimesBlockConv(nn.Module):
+    def __init__(self, d_model):
+        super().__init__()
+
+        self.conv_list = nn.ModuleList([
+            nn.Conv2d(d_model, d_model, kernel_size=(1, 1), padding=0),
+            nn.Conv2d(d_model, d_model, kernel_size=(3, 3), padding=1),
+            nn.Conv2d(d_model, d_model, kernel_size=(5, 5), padding=2),
+        ])
+
+        self.activation = nn.GELU()
+        self.bn = nn.BatchNorm2d(d_model)
+
+    def forward(self, x):
+        # x: (B, M, N, C)
+
+        x = x.permute(0, 3, 1, 2)  # -> (B, C, M, N)
+
+        out = 0
+        for conv in self.conv_list:
+            out = out + conv(x)
+
+        out = self.bn(out)
+        out = self.activation(out)
+
+        out = out.permute(0, 2, 3, 1)  # -> (B, M, N, C)
+        return out
+
+
 class block(nn.Module):
     def __init__(self, seq_len, d_embd, dropout, k_periods, bw, n_blocks, n_heads, d_head, s_win, levels, s_region, s_pool, theta):
         super().__init__()
         self.ffwd = FeedForward(d_embd, dropout)
         self.film_mlp = film_mlp(d_embd, d_head, dropout)
-        self.inception = VisualTransformer(d_embd, dropout, n_blocks, n_heads, d_head, s_win, levels, s_region, s_pool, theta)
+        self.times_conv = TimesBlockConv(d_embd)
 
         self.seq_len = seq_len
         self.k_periods = k_periods
@@ -102,8 +132,8 @@ class block(nn.Module):
             f_off = torch.stack(batch_f_off, dim=0)  # (B, M_max, N_max, 2*d_head)
             mask = torch.stack(batch_mask, dim=0)
 
-            # Visual Transformer
-            timeframes_k = self.inception(timeframes_k, mask, f_off)  # returns (B,M_max,N_max,C)
+            # Conv # returns (B,M_max,N_max,C)
+            timeframes_k = self.times_conv(timeframes_k)
 
             # flatten to 1D
             fin_timeframes_k = []
