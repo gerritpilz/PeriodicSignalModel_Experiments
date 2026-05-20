@@ -67,11 +67,10 @@ class block(nn.Module):
     def __init__(self, seq_len, d_embd, dropout, k_periods, bw, n_heads):
         super().__init__()
         self.MLP = MLP(d_embd, dropout)
-        self.MLP_film = MLP_film(d_embd, d_embd, dropout)
+        self.MLP_film = MLP_film(d_embd, dropout)
         self.times_conv = TimesBlockConv(d_embd)
         self.ln = nn.LayerNorm(d_embd)
         self.attention =  nn.MultiheadAttention(embed_dim=d_embd, num_heads=n_heads, batch_first=True)
-
         self.agg_MLP = MLP(d_embd, dropout)
 
         self.seq_len = seq_len
