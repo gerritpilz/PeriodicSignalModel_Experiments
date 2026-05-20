@@ -9,7 +9,7 @@ n_channels = 10
 seq_len = 128
 pred_len = 32
 batch_size = 16
-d_embd = 64
+d_embd = 128
 dropout = 0.2
 
 # model
@@ -71,8 +71,8 @@ val_data = data[n:]
 # Normalize data
 mean = train_data.mean(dim=0)
 std = train_data.std(dim=0)
-train_data = (train_data - mean) / std
-val_data = (val_data - mean) / std
+train_data = train_data / std
+val_data = val_data / std
 
 # Dataset, Dataloader
 train_dataset = weatherDataset(train_data, seq_len, pred_len)
