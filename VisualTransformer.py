@@ -152,8 +152,8 @@ class multi_head(nn.Module):
         # pad
         pad = k // 2
         X = F.pad(X, (pad, pad, pad, pad))
-        cy += pad
-        cx += pad
+        cy_pad = cy + pad
+        cx_pad = cx + pad
 
         # mask
         mask = torch.ones((1, 1, 1, M, N), dtype=torch.bool, device='cuda')
@@ -165,7 +165,7 @@ class multi_head(nn.Module):
         delta = torch.arange(k, device='cuda') - (k//2)  # (k) -> stores k different offsets ranging from -k/2 to k/2 (to create a region)
 
         # calc region coordinates for all windows
-        YY, XX = torch.meshgrid(cy, cx, indexing='ij')  # (Mw, Nw) -> y and x center coords for each window (i,j)
+        YY, XX = torch.meshgrid(cy_pad, cx_pad, indexing='ij')  # (Mw, Nw) -> y and x center coords for each window (i,j)
         YY = YY[..., None, None] + delta.view(1, 1, -1, 1)  # (Mw, Nw, 1, 1) + (1, 1, k, 1) = (Mw, Nw, k, 1) -> for each window (i,j): stores absolute y coords of all vertical offsets k around center, YY[i,j,m,0] = cy[i] + dy[m]
         XX = XX[..., None, None] + delta.view(1, 1, 1, -1)  # (Mw, Nw, 1, 1) + (1, 1, 1, k) = (Mw, Nw, 1, k)
 
