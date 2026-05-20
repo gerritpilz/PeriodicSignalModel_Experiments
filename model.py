@@ -3,7 +3,6 @@ import torch.nn as nn
 from torch.nn import functional as F
 from einops import rearrange
 
-from VisualTransformer import VisualTransformer
 
 
 class FeedForward(nn.Module):
@@ -63,10 +62,10 @@ class TimesBlockConv(nn.Module):
 
 
 class block(nn.Module):
-    def __init__(self, seq_len, d_embd, dropout, k_periods, bw, n_blocks, n_heads, d_head, s_win, levels, s_region, s_pool, theta):
+    def __init__(self, seq_len, d_embd, dropout, k_periods, bw):
         super().__init__()
         self.ffwd = FeedForward(d_embd, dropout)
-        self.film_mlp = film_mlp(d_embd, d_head, dropout)
+        self.film_mlp = film_mlp(d_embd, d_embd, dropout)
         self.times_conv = TimesBlockConv(d_embd)
 
         self.seq_len = seq_len
@@ -130,7 +129,6 @@ class block(nn.Module):
 
             timeframes_k = torch.stack(batch_timeframes, dim=0) # (B, M_max, N_max C)
             f_off = torch.stack(batch_f_off, dim=0)  # (B, M_max, N_max, 2*d_head)
-            mask = torch.stack(batch_mask, dim=0)
 
             # Conv # returns (B,M_max,N_max,C)
             timeframes_k = self.times_conv(timeframes_k)
@@ -221,11 +219,11 @@ class block(nn.Module):
 
 
 class model(nn.Module):
-    def __init__(self, n_channels, seq_len, d_embd, dropout, n_timeBlocks, k_periods, bw, n_blocks, n_heads, d_head, s_win, levels, s_region, s_pool, theta):
+    def __init__(self, n_channels, seq_len, d_embd, dropout, n_timeBlocks, k_periods, bw):
         super().__init__()
 
         self.embd = nn.Linear(n_channels, d_embd)
-        self.blocks = nn.Sequential(*[block(seq_len, d_embd, dropout, k_periods, bw, n_blocks, n_heads, d_head, s_win, levels, s_region, s_pool, theta) for _ in range(n_timeBlocks)])
+        self.blocks = nn.Sequential(*[block(seq_len, d_embd, dropout, k_periods, bw) for _ in range(n_timeBlocks)])
         self.embd_back = nn.Linear(d_embd, n_channels)
 
         self.seq_len = seq_len
