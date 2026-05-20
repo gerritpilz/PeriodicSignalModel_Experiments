@@ -245,8 +245,6 @@ class block(nn.Module):
         # Layer-Norm 1
         feature_map = self.ln1(feature_map_in)
 
-        print("input std:", feature_map.std().item())
-
         # pool feature map and freq_off
         pooled_maps, pooled_masks = self.pool_featureMap(feature_map, mask)
         pooled_freqOff, _ = self.pool_freqOff(freq_off, mask)
