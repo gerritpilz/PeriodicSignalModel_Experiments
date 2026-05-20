@@ -109,9 +109,9 @@ class multi_head(nn.Module):
 
             # frequency and Rope Embedding for Keys
             K_l = K_l * pooled_freqOff_l[..., :self.d_head] + pooled_freqOff_l[..., self.d_head:]  # Film
-            M_idx = torch.arange(K[l].shape[-3], device='cuda')
-            N_idx = torch.arange(K[l].shape[-2], device='cuda')
-            K_l = self.Rope(K_l, M_idx * self.s_pool, N_idx * self.s_pool)
+            M_idx = torch.arange(K_l.shape[-3], device='cuda')
+            N_idx = torch.arange(K_l.shape[-2], device='cuda')
+            K_l = self.Rope(K_l, M_idx, N_idx)
 
             # correct window centers by pooling
             cy = cy // self.s_pool[l]
