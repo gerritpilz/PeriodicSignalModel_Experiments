@@ -148,6 +148,18 @@ class block(nn.Module):
         H = (torch.abs(f_bin - f0_bin) <= self.bw).float()  # (B 1) * (1 F) = (B F)
         return H
 
+    def unwrap(self, phase, dim):
+        dphi = torch.diff(phase, dim=dim)
+
+        # bring into [-pi, pi]
+        dphi = (dphi + torch.pi) % (2 * torch.pi) - torch.pi
+
+        phase_unwrapped = torch.cumsum(
+            torch.cat([phase.narrow(dim, 0, 1), dphi], dim=dim),
+            dim=dim
+        )
+        return phase_unwrapped
+
     def bandpass(self, x, f0_bin):
 
         Xf = torch.fft.rfft(x, dim=-2) # (B F C)
@@ -161,11 +173,11 @@ class block(nn.Module):
 
         amp_t = torch.abs(z)
 
-        phase_t = torch.unwrap(torch.angle(z), dim=-2)  # angle returns [-pi, pi] -> unwrap
-        freq_t = torch.diff(phase_t / (2.0 * torch.pi), dim=-2)  # (B T-1 C)
+        phase_t = self.unwrap(torch.angle(z), dim=-2)  # angle returns [-pi, pi] -> unwrap
+        freq_t = torch.diff(phase_t, dim=-2) / (2.0 * torch.pi)  # (B T C)
+        freq_t = F.pad(freq_t, (0, 0, 0, 1))  # add lost time step
         f0 = rearrange(f0_bin/self.seq_len, 'b -> b 1 1')
         freq_offset = f0 - freq_t
-        freq_offset = F.pad(freq_offset, (0, 0, 1, 0))  # add time step that got lost at np.diff -> (B T C)
 
         return amp_t, freq_offset # both (B T C)
 
