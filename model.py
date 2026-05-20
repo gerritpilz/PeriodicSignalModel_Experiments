@@ -148,10 +148,11 @@ class block(nn.Module):
         x = self.MLP(timeframes)
 
         # Attention optional
+        B = x.shape[0]
         x_att = self.ln(x)
-        x_att = rearrange(x_att, 'b k t c -> (b k) t c')
+        x_att = rearrange(x_att, 'b k t c -> (b k) t c', b=B)
         x_att, _ = self.attention(x_att, x_att, x_att)
-        x_att = rearrange(x_att, '(b k) t c -> b k t c',  k=len(self.k_periods))
+        x_att = rearrange(x_att, '(b k) t c -> b k t c',  )
         x = x + x_att
 
         # Film
