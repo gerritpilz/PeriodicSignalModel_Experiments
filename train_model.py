@@ -31,7 +31,7 @@ theta = 10000
 
 # training
 n_epochs = 4
-eval_iter = 50
+eval_iter = 5
 
 
 class weatherDataset(Dataset):
