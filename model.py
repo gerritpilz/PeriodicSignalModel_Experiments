@@ -71,6 +71,7 @@ class block(nn.Module):
         self.attention =  nn.MultiheadAttention(embed_dim=d_embd, num_heads=n_heads, batch_first=True)
         self.agg_MLP = MLP(d_embd, dropout)
 
+        self.d_embd = d_embd
         self.seq_len = seq_len
         self.k_periods = k_periods
         self.bw = bw
