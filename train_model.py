@@ -13,7 +13,7 @@ d_embd = 128
 dropout = 0.2
 
 # model
-n_timeBlocks = 16
+n_timeBlocks = 12
 k_periods = 12
 
 # filter
