@@ -87,7 +87,7 @@ train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 val_loader = DataLoader(val_dataset, batch_size=batch_size)
 
 # create model
-model = model(n_channels, seq_len, d_embd, dropout, n_timeBlocks, k_periods, bw, p_cutoff, n_taps, n_blocks, n_heads, d_head, s_win, levels, s_region, s_pool, theta)
+model = model(n_channels, seq_len, d_embd, dropout, n_timeBlocks, k_periods, bw, n_blocks, n_heads, d_head, s_win, levels, s_region, s_pool, theta)
 model = model.to('cuda')
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
