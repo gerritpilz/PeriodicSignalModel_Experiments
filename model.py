@@ -134,31 +134,6 @@ class block(nn.Module):
         out = x + deltaX
         return out
 
-    '''
-    def bandpass_hilbert(self, x, f0):
-        x = x.detach().cpu().numpy()
-        f0 = float(f0.detach().cpu())
-
-        # filter each channel c(t)
-        fL, fH = f0 * (1 - self.p_cutoff), f0 * (1 + self.p_cutoff)
-        taps = cp.firwin(self.n_taps, [fL, fH], pass_zero=False)  # H(f) -> h(t)
-        x_filtered = cp.filtfilt(taps, 1.0, x, axis=-2)  # (T, C) -> filter across T, filtfilt -> no phase shift
-
-        # hilbert transform the filtered c(t)
-        z = cp.hilbert(x_filtered, axis=-2)  # (T, C) -> stores analytic filtered signals z(t) for each channel
-        amp_t = cupy.abs(z)
-        phase_t = cupy.unwrap(np.angle(z))  # angle returns [-pi, pi] -> unwrap
-        freq_t = cupy.diff(phase_t / (2.0 * np.pi), axis=-2)  # cycles/timestep(t)
-        freq_offset = f0-freq_t
-
-        amp_t = cupy.asnumpy(amp_t)
-        freq_offset = cupy.asnumpy(freq_offset)
-        amp_t = torch.from_numpy(amp_t).float().to('cuda')
-        freq_offset = torch.from_numpy(freq_offset).float().to('cuda')
-
-        freq_offset = F.pad(freq_offset, (0, 0, 1, 0)) # add time step that got lost at np.diff -> (T, C)
-        return amp_t, freq_offset
-    '''
     def analytic_signal(self, x):
         H = self.hilbert_filter
         H = rearrange(H, 't -> t 1')
