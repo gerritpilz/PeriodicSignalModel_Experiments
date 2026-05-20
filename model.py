@@ -3,6 +3,7 @@ import torch.nn as nn
 from torch.nn import functional as F
 from einops import rearrange
 
+from train_model import k_periods
 
 
 class MLP(nn.Module):
@@ -150,7 +151,7 @@ class block(nn.Module):
         x_att = self.ln(x)
         x_att = rearrange(x_att, 'b k t c -> (b k) t c')
         x_att, _ = self.attention(x_att, x_att, x_att)
-        x_att = rearrange(x_att, '(b k) t c -> b k t c')
+        x_att = rearrange(x_att, '(b k) t c -> b k t c',  k=len(self.k_periods))
         x = x + x_att
 
         # Film
