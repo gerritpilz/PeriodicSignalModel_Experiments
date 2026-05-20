@@ -3,9 +3,6 @@ import torch.nn as nn
 from torch.nn import functional as F
 from einops import rearrange
 
-from train_model import k_periods
-
-
 class MLP(nn.Module):
      def __init__(self, d_in, dropout):
         super().__init__()
