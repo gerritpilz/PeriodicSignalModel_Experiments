@@ -7,12 +7,13 @@ from model import model
 # hyperparameters
 n_channels = 10
 seq_len = 64
+pred_len = 32
 batch_size = 2
 d_embd = 64
 dropout = 0.2
 
 # model
-n_timeBlocks = 4
+n_timeBlocks = 6
 k_periods = 6
 
 # filter
@@ -20,7 +21,7 @@ bw = 1
 
 # Visual Transformer
 n_blocks = 4
-n_heads = 4
+n_heads = 2
 d_head = d_embd // n_heads
 s_win = 4
 levels = 2
@@ -34,17 +35,19 @@ eval_iter = 50
 
 
 class weatherDataset(Dataset):
-    def __init__(self, data, seq_len):
+    def __init__(self, data, seq_len, pred_len):
         self.X = torch.tensor(data, dtype=torch.float32)
         self.seq_len = seq_len
+        self.pred_len = pred_len
 
     def __len__(self):
-        return len(self.X) - self.seq_len
+        return len(self.X) - self.seq_len - self.pred_len
 
     def __getitem__(self, idx):
-        x = self.X[idx : idx+self.seq_len, :]
-        y = self.X[idx+seq_len//2+1: idx+self.seq_len+1, :]   # compare only half a seq_len to each other for loss
+        x = self.X[idx: idx + self.seq_len]
+        y = self.X[idx + self.seq_len: idx + self.seq_len + self.pred_len]
         return x, y
+
 
 @torch.no_grad()
 def estimate_loss():
@@ -58,9 +61,10 @@ def estimate_loss():
 
             xb, yb = xb.to('cuda'), yb.to('cuda')
             pred = model(xb)
-            loss = F.mse_loss(pred[:, seq_len // 2:, :], yb)
-            losses[it] = loss
+            pred = pred[:, -pred_len:, :]
 
+            loss = F.mse_loss(pred, yb)
+            losses[it] = loss
         out[split] = losses.mean()
     model.train()
     return out
@@ -81,8 +85,8 @@ train_data = (train_data - mean) / std
 val_data = (val_data - mean) / std
 
 # Dataset, Dataloader
-train_dataset = weatherDataset(train_data, seq_len)
-val_dataset = weatherDataset(val_data, seq_len)
+train_dataset = weatherDataset(train_data, seq_len, pred_len)
+val_dataset = weatherDataset(val_data, seq_len, pred_len)
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)  
 val_loader = DataLoader(val_dataset, batch_size=batch_size)
 
@@ -98,7 +102,8 @@ for epoch in range(n_epochs):
     for it, (xb, yb) in enumerate(train_loader):
         xb, yb = xb.to('cuda'), yb.to('cuda')
         pred = model(xb)
-        loss = F.mse_loss(pred[:, seq_len//2:, :], yb)
+        pred = pred[:, -pred_len:, :]
+        loss = F.mse_loss(pred, yb)
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
         optimizer.step()
