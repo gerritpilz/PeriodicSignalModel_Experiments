@@ -6,23 +6,21 @@ from model import model
 
 # hyperparameters
 n_channels = 10
-seq_len = 32
+seq_len = 128
 batch_size = 8
 d_embd = 64
 dropout = 0.2
 
 # model
 n_timeBlocks = 4
-k_periods = 4
+k_periods = 8
 
 # filter
-p_cutoff = 0.1
-n_taps = 8  # seq_len has to be increased for this to be meaningful
-bw = 2
+bw = 1
 
 # Visual Transformer
-n_blocks = 2
-n_heads = 2
+n_blocks = 4
+n_heads = 4
 d_head = d_embd // n_heads
 s_win = 8
 levels = 3
