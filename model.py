@@ -2,11 +2,9 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from einops import rearrange
-import numpy as np
-from cupyx.scipy import signal as cp
-import cupy
 
 from VisualTransformer import VisualTransformer
+
 
 class FeedForward(nn.Module):
      def __init__(self, d_embd, dropout):
@@ -35,17 +33,26 @@ class film_mlp(nn.Module):
         return self.net(x)
 
 class block(nn.Module):
-    def __init__(self, d_embd, dropout, k_periods, p_cutoff, n_taps, n_blocks, n_heads, d_head, s_win, levels, s_region, s_pool, theta):
+    def __init__(self, seq_len, d_embd, dropout, k_periods, bw, p_cutoff, n_taps, n_blocks, n_heads, d_head, s_win, levels, s_region, s_pool, theta):
         super().__init__()
         self.ffwd = FeedForward(d_embd, dropout)
         self.film_mlp = film_mlp(d_embd, d_head, dropout)
         self.inception = VisualTransformer(d_embd, dropout, n_blocks, n_heads, d_head, s_win, levels, s_region, s_pool, theta)
 
+        self.seq_len = seq_len
         self.k_periods = k_periods
+        self.bw = bw
 
         # filter
         self. p_cutoff = p_cutoff
         self.n_taps = n_taps
+
+        # hilbert filter
+        H = torch.zeros(seq_len)
+        H[0] = 1
+        H[1:seq_len // 2] = 2
+        H[seq_len // 2] = 1
+        self.register_buffer("hilbert_filter", H)
 
     def forward(self, x):
         B,T,C = x.shape
@@ -64,22 +71,21 @@ class block(nn.Module):
             n = p[:, k]           # (B): num columns of 2D timeframe of period k for each batch
             m = (T + pad) // n
 
+            amp_t, f_offset = self.bandpass(x, freq_bin[:, k])  # (B, T, C) each
+            f_off_embd = self.film_mlp(f_offset)  # (B, T, 2*d_head)
+            fin_amps_t.append(amp_t) # append amp_t tensor to collect all k
+
             batch_timeframes = []
             batch_mask = []
-            batch_amps_t = []
             batch_f_off = []
             for b in range(B):
                 pad_b = pad[b]
                 m_b = m[b]
                 n_b = n[b]
 
-                # filter and hilbert transform
-                amp_t, f_offset = self.bandpass_hilbert(x[b], freq_bin[b, k] / T)  # (T, C) each
-                f_off_embd = self.film_mlp(f_offset) # (T, 2*d_head)
-
                 # shape/pad dims to create one tensor of 2D timeframes for each k
                 timeframe_b_k = F.pad(x[b], (0, 0, 0,pad_b),) # (T+pad, C): pad time dim
-                f_off_embd = F.pad(f_off_embd, (0, 0, 0, pad_b))
+                f_off_embd_b = F.pad(f_off_embd[b], (0, 0, 0, pad_b))
 
                 mask_b_k = x[b].new_ones(T, 1)
                 mask_b_k = F.pad(mask_b_k,(0,0, 0,pad_b))
@@ -87,22 +93,18 @@ class block(nn.Module):
                 # 2D transform
                 timeframe_b_k = rearrange(timeframe_b_k, '(m n) c -> m n c', n=n_b)
                 timeframe_b_k = F.pad(timeframe_b_k, (0,0, 0,nk_max - n_b, 0,mk_max - m_b))  # pad to match dims across batches for fixed k
-                f_off_embd = rearrange(f_off_embd, '(m n) c -> m n c', n=n_b)
-                f_off_embd = F.pad(f_off_embd, (0,0, 0,nk_max - n_b, 0,mk_max - m_b))
+                f_off_embd_b = rearrange(f_off_embd_b, '(m n) c -> m n c', n=n_b)
+                f_off_embd_b = F.pad(f_off_embd_b, (0,0, 0,nk_max - n_b, 0,mk_max - m_b))
                 mask_b_k = rearrange(mask_b_k,'(m n) c -> m n c', n=n_b)
                 mask_b_k = F.pad(mask_b_k,(0,0, 0,nk_max - n_b, 0,mk_max - m_b))
 
                 batch_timeframes.append(timeframe_b_k) # (M_max, N_max, C)
-                batch_f_off.append(f_off_embd)
-                batch_amps_t.append(amp_t)
+                batch_f_off.append(f_off_embd_b)
                 batch_mask.append(mask_b_k)
 
             timeframes_k = torch.stack(batch_timeframes, dim=0) # (B, M_max, N_max C)
             f_off = torch.stack(batch_f_off, dim=0)  # (B, M_max, N_max, 2*d_head)
             mask = torch.stack(batch_mask, dim=0)
-
-            amps_t = torch.stack(batch_amps_t, dim=0) # (B, T, C)
-            fin_amps_t.append(amps_t)
 
             # Visual Transformer
             timeframes_k = self.inception(timeframes_k, mask, f_off)  # returns (B,M_max,N_max,C)
@@ -132,6 +134,7 @@ class block(nn.Module):
         out = x + deltaX
         return out
 
+    '''
     def bandpass_hilbert(self, x, f0):
         x = x.detach().cpu().numpy()
         f0 = float(f0.detach().cpu())
@@ -155,6 +158,42 @@ class block(nn.Module):
 
         freq_offset = F.pad(freq_offset, (0, 0, 1, 0)) # add time step that got lost at np.diff -> (T, C)
         return amp_t, freq_offset
+    '''
+    def analytic_signal(self, x):
+        H = self.hilbert_filter
+        H = rearrange(H, 't -> t 1')
+        Xf = torch.fft.fft(x, dim=-2)
+        Zf = Xf * H
+        z = torch.fft.ifft(Zf, dim=-2)
+        return z
+
+    def Hf_bandpass(self, f0_bin):
+        f_bin = torch.arange(self.seq_len//2 + 1, device='cuda') # freq bin vector
+        f0_bin = rearrange(f0_bin, 'b -> b 1') # add freq dim
+        H = (torch.abs(f_bin - f0_bin) <= self.bw).float()  # (B 1) * (1 F) = (B F)
+        return H
+
+    def bandpass(self, x, f0_bin):
+
+        Xf = torch.fft.rfft(x, dim=-2) # (B F C)
+        Hf = self.Hf_bandpass(f0_bin) # (B F)
+        Hf = rearrange(Hf, 'b f -> b f 1')
+        Xf_filt = Hf*Xf
+        x_filt = torch.fft.irfft(Xf_filt, dim=-2) # (B T C)
+
+        # hilbert transform the filtered x
+        z = self.analytic_signal(x_filt) # (B T C)
+
+        amp_t = torch.abs(z)
+
+        phase_t = torch.unwrap(torch.angle(z), dim=-2)  # angle returns [-pi, pi] -> unwrap
+        freq_t = torch.diff(phase_t / (2.0 * torch.pi), dim=-2)  # (B T-1 C)
+        f0 = rearrange(f0_bin/self.seq_len, 'b -> b 1 1')
+        freq_offset = f0 - freq_t
+        freq_offset = F.pad(freq_offset, (0, 0, 1, 0))  # add time step that got lost at np.diff -> (B T C)
+
+        return amp_t, freq_offset # both (B T C)
+
 
     def get_periods(self, x):
         T = x.shape[1]
@@ -169,11 +208,11 @@ class block(nn.Module):
 
 
 class model(nn.Module):
-    def __init__(self, n_channels, seq_len, d_embd, dropout, n_timeBlocks, k_periods, p_cutoff, n_taps, n_blocks, n_heads, d_head, s_win, levels, s_region, s_pool, theta):
+    def __init__(self, n_channels, seq_len, d_embd, dropout, n_timeBlocks, k_periods, bw, p_cutoff, n_taps, n_blocks, n_heads, d_head, s_win, levels, s_region, s_pool, theta):
         super().__init__()
 
         self.embd = nn.Linear(n_channels, d_embd)
-        self.blocks = nn.Sequential(*[block(d_embd, dropout, k_periods, p_cutoff, n_taps, n_blocks, n_heads, d_head, s_win, levels, s_region, s_pool, theta) for _ in range(n_timeBlocks)])
+        self.blocks = nn.Sequential(*[block(seq_len, d_embd, dropout, k_periods, bw, p_cutoff, n_taps, n_blocks, n_heads, d_head, s_win, levels, s_region, s_pool, theta) for _ in range(n_timeBlocks)])
         self.embd_back = nn.Linear(d_embd, n_channels)
 
         self.seq_len = seq_len
