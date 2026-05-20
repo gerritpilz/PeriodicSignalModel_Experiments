@@ -248,7 +248,7 @@ class block(nn.Module):
 
         # pool feature map and freq_off
         pooled_maps, pooled_masks = self.pool_featureMap(feature_map, mask)
-        pooled_freqOff = self.pool_freqOff(freq_off, mask)
+        pooled_freqOff, _ = self.pool_freqOff(freq_off, mask)
 
         # pad feature map for window alignment
         B, M, N, C = feature_map.shape
