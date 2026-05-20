@@ -6,7 +6,7 @@ from model import model
 
 # hyperparameters
 n_channels = 10
-seq_len = 128
+seq_len = 64
 batch_size = 2
 d_embd = 64
 dropout = 0.2
