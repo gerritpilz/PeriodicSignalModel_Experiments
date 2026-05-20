@@ -7,13 +7,13 @@ from model import model
 # hyperparameters
 n_channels = 10
 seq_len = 128
-batch_size = 8
+batch_size = 2
 d_embd = 64
 dropout = 0.2
 
 # model
 n_timeBlocks = 4
-k_periods = 8
+k_periods = 6
 
 # filter
 bw = 1
