@@ -19,6 +19,9 @@ k_periods = 8
 # filter
 bw = 1
 
+# Attention
+n_heads = 4
+
 # training
 n_epochs = 4
 eval_iter = 5
@@ -81,7 +84,7 @@ train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 val_loader = DataLoader(val_dataset, batch_size=batch_size)
 
 # create model
-model = model(n_channels, seq_len, d_embd, dropout, n_timeBlocks, k_periods, bw)
+model = model(n_channels, seq_len, d_embd, dropout, n_timeBlocks, k_periods, bw, n_heads)
 model = model.to('cuda')
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)

@@ -5,26 +5,26 @@ from einops import rearrange
 
 
 
-class FeedForward(nn.Module):
-     def __init__(self, d_embd, dropout):
+class MLP(nn.Module):
+     def __init__(self, d_in, dropout):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(d_embd, 4 * d_embd),
+            nn.Linear(d_in, 2 * d_in),
             nn.GELU(),
-            nn.Linear(4 * d_embd, d_embd),
+            nn.Linear(2 * d_in, d_in),
             nn.Dropout(dropout)
          )
 
      def forward(self, x):
           return self.net(x)
 
-class film_mlp(nn.Module):
-    def __init__(self, d_embd, d_head, dropout):
+class MLP_film(nn.Module):
+    def __init__(self, d_in, dropout):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(d_embd, 2*d_embd),
+            nn.Linear(d_in, 2*d_in),
             nn.GELU(),
-            nn.Linear(2*d_embd, 2*d_head),
+            nn.Linear(2*d_in, 2*d_in),
             nn.Dropout(dropout)
         )
 
@@ -48,8 +48,6 @@ class TimesBlockConv(nn.Module):
         self.bn = nn.BatchNorm2d(d_model)
 
     def forward(self, x):
-        x_in = x
-
         x = x.permute(0, 3, 1, 2)
 
         outs = [conv(x) for conv in self.conv_list]
@@ -66,12 +64,15 @@ class TimesBlockConv(nn.Module):
 
 
 class block(nn.Module):
-    def __init__(self, seq_len, d_embd, dropout, k_periods, bw):
+    def __init__(self, seq_len, d_embd, dropout, k_periods, bw, n_heads):
         super().__init__()
-        self.ffwd = FeedForward(d_embd, dropout)
-        self.film_mlp = film_mlp(d_embd, d_embd, dropout)
+        self.MLP = MLP(d_embd, dropout)
+        self.MLP_film = MLP_film(d_embd, d_embd, dropout)
         self.times_conv = TimesBlockConv(d_embd)
-        self.ffwd_amps = FeedForward(d_embd, dropout)
+        self.ln = nn.LayerNorm(d_embd)
+        self.attention =  nn.MultiheadAttention(embed_dim=d_embd, num_heads=n_heads, batch_first=True)
+
+        self.agg_MLP = MLP(d_embd, dropout)
 
         self.seq_len = seq_len
         self.k_periods = k_periods
@@ -101,12 +102,10 @@ class block(nn.Module):
             n = p[:, k]           # (B): num columns of 2D timeframe of period k for each batch
             m = (T + pad) // n
 
-            amp_t, f_offset = self.bandpass(x, freq_bin[:, k])  # (B, T, C) each
-            f_off_embd = self.film_mlp(f_offset)  # (B, T, 2*d_head)
+            amp_t, f_off = self.bandpass(x, freq_bin[:, k])  # (B, T, C) each
             fin_amps_t.append(amp_t) # append amp_t tensor to collect all k
 
             batch_timeframes = []
-            batch_mask = []
             batch_f_off = []
             for b in range(B):
                 pad_b = pad[b]
@@ -115,27 +114,21 @@ class block(nn.Module):
 
                 # shape/pad dims to create one tensor of 2D timeframes for each k
                 timeframe_b_k = F.pad(x[b], (0, 0, 0,pad_b),) # (T+pad, C): pad time dim
-                f_off_embd_b = F.pad(f_off_embd[b], (0, 0, 0, pad_b))
-
-                mask_b_k = x[b].new_ones(T, 1)
-                mask_b_k = F.pad(mask_b_k,(0,0, 0,pad_b))
+                f_off_embd_b = F.pad(f_off[b], (0, 0, 0, pad_b))
 
                 # 2D transform
                 timeframe_b_k = rearrange(timeframe_b_k, '(m n) c -> m n c', n=n_b)
                 timeframe_b_k = F.pad(timeframe_b_k, (0,0, 0,nk_max - n_b, 0,mk_max - m_b))  # pad to match dims across batches for fixed k
                 f_off_embd_b = rearrange(f_off_embd_b, '(m n) c -> m n c', n=n_b)
                 f_off_embd_b = F.pad(f_off_embd_b, (0,0, 0,nk_max - n_b, 0,mk_max - m_b))
-                mask_b_k = rearrange(mask_b_k,'(m n) c -> m n c', n=n_b)
-                mask_b_k = F.pad(mask_b_k,(0,0, 0,nk_max - n_b, 0,mk_max - m_b))
 
                 batch_timeframes.append(timeframe_b_k) # (M_max, N_max, C)
                 batch_f_off.append(f_off_embd_b)
-                batch_mask.append(mask_b_k)
 
             timeframes_k = torch.stack(batch_timeframes, dim=0) # (B, M_max, N_max C)
             f_off = torch.stack(batch_f_off, dim=0)  # (B, M_max, N_max, 2*d_head)
 
-            # Conv # returns (B,M_max,N_max,C)
+            # Conv returns (B,M_max,N_max,C)
             timeframes_k = self.times_conv(timeframes_k)
 
             # flatten to 1D
@@ -148,20 +141,31 @@ class block(nn.Module):
 
             fin_timeframes.append(torch.stack(fin_timeframes_k, dim=0)) # (B, T, C)
 
-        timeframes_1d = torch.stack(fin_timeframes, dim=1) # (B, k, T, C)
+        timeframes = torch.stack(fin_timeframes, dim=1) # (B, k, T, C)
         amps = torch.stack(fin_amps_t, dim=1)           # (B, k, T, C)
 
         # MLP
-        timeframes_1d = self.ffwd(timeframes_1d)
+        x = self.MLP(timeframes)
+
+        # Attention optional
+        x_att = self.ln(x)
+        x_att = rearrange(x_att, 'b k t c -> (b k) t c')
+        x_att, _ = self.attention(x_att, x_att, x_att)
+        x_att = rearrange(x_att, '(b k) t c -> b k t c')
+        x = x + x_att
+
+        # Film
+        param = self.MLP_film(f_off)
+        x_film = x*param[..., :self.d_embd] + param[..., self.d_embd:]
+        x = x + x_film
 
         # Adaptive Aggregation
-        amps = self.ffwd_amps(amps)
-        amps = F.softmax(amps, dim=1)         # (B, k, T, C) -> softmax across k
-        timeframes_1d = timeframes_1d * amps  # (B, k, T, C)
-        deltaX = timeframes_1d.sum(dim=1)     # sum across k -> (B, T, C)
+        weights = F.softmax(amps, dim=1)         # (B, k, T, C) -> softmax across k, importance of freq k at each time/channel
+        dx = x * weights  # (B, k, T, C)
+        dx = rearrange(dx, 'b k t c -> b t (k c)')
+        dx = self.agg_MLP(dx)      # (B T k*C) -> (B T C)
+        out = x + dx
 
-        # Residual Connection
-        out = x + deltaX
         return out
 
     def analytic_signal(self, x):
@@ -171,11 +175,19 @@ class block(nn.Module):
         Zf = Xf * H
         z = torch.fft.ifft(Zf, dim=-2)
         return z
-
+    '''
     def Hf_bandpass(self, f0_bin):
         f_bin = torch.arange(self.seq_len//2 + 1, device='cuda') # freq bin vector
         f0_bin = rearrange(f0_bin, 'b -> b 1') # add freq dim
         H = (torch.abs(f_bin - f0_bin) <= self.bw).float()  # (B 1) * (1 F) = (B F)
+        return H
+    '''
+
+    def gaussian_bandpass(self, f0_bin, sigma=1): #sigma 1 optimal
+        f_bin = torch.arange(self.seq_len // 2 + 1, device='cuda')  # freq bin vector
+        f0_bin = rearrange(f0_bin, 'b -> b 1')  # add freq dim
+        d = torch.abs(f_bin - f0_bin)
+        H = torch.exp(-(d ** 2) / (2 * sigma ** 2))
         return H
 
     def unwrap(self, phase, dim):
@@ -193,7 +205,7 @@ class block(nn.Module):
     def bandpass(self, x, f0_bin):
 
         Xf = torch.fft.rfft(x, dim=-2) # (B F C)
-        Hf = self.Hf_bandpass(f0_bin) # (B F)
+        Hf = self.gaussian_bandpass(f0_bin, 1) # (B F)´  #!!!!!!!!!!!!!!!!!!!!!!!!!!! sigma umstellen
         Hf = rearrange(Hf, 'b f -> b f 1')
         Xf_filt = Hf*Xf
         x_filt = torch.fft.irfft(Xf_filt, dim=-2) # (B T C)
@@ -215,7 +227,7 @@ class block(nn.Module):
     def get_periods(self, x):
         T = x.shape[1]
 
-        x_ft = torch.fft.rfft(x, dim=-2)  # fft for frequencies 0,...,T//2
+        x_ft = torch.fft.rfft(x, dim=-2)
         x_ft = x_ft[:, 1:, :]  # drop row 0 -> const term
         amps = torch.abs(x_ft)
         amps = torch.mean(amps, dim=-1)  # avg across channel dim (identify most meaningful periods across channels) -> (B,F)
@@ -225,16 +237,16 @@ class block(nn.Module):
 
 
 class model(nn.Module):
-    def __init__(self, n_channels, seq_len, d_embd, dropout, n_timeBlocks, k_periods, bw):
+    def __init__(self, n_channels, seq_len, d_embd, dropout, n_timeBlocks, k_periods, bw, n_heads):
         super().__init__()
 
         self.embd = nn.Linear(n_channels, d_embd)
-        self.blocks = nn.Sequential(*[block(seq_len, d_embd, dropout, k_periods, bw) for _ in range(n_timeBlocks)])
+        self.blocks = nn.Sequential(*[block(seq_len, d_embd, dropout, k_periods, bw, n_heads) for _ in range(n_timeBlocks)])
         self.embd_back = nn.Linear(d_embd, n_channels)
 
         self.seq_len = seq_len
 
-        self.apply(self.init_weights)  # goes through every module and calls init_weights on it, passes in module as argument to init_weights
+        self.apply(self.init_weights)
 
     def init_weights(self, module):
         if isinstance(module, nn.Linear):
