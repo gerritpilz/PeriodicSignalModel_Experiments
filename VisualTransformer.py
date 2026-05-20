@@ -114,12 +114,12 @@ class multi_head(nn.Module):
             K_l = self.Rope(K_l, M_idx, N_idx)
 
             # correct window centers by pooling
-            cy = cy // self.s_pool[l]
-            cx = cx // self.s_pool[l]
+            cy_l = cy // self.s_pool[l]
+            cx_l = cx // self.s_pool[l]
 
             # extract regions
-            K_regions, mask_K, YY, XX = self.extract_regions(K_l, cy, cx, self.s_region[l], pooled_mask_l)  # (B, H, M, N, C)
-            V_regions, _, _, _ = self.extract_regions(V_l, cy, cx, self.s_region[l], pooled_mask_l)  # YY, XX for K/V identical
+            K_regions, mask_K, YY, XX = self.extract_regions(K_l, cy_l, cx_l, self.s_region[l], pooled_mask_l)  # (B, H, M, N, C)
+            V_regions, _, _, _ = self.extract_regions(V_l, cy_l, cx_l, self.s_region[l], pooled_mask_l)  # YY, XX for K/V identical
 
             # prepare dims for att, mask already prepared in extract_regions
             K_regions = rearrange(K_regions, 'b h (Mw sr1) (Nw sr2) c -> b h Mw Nw (sr1 sr2) c', sr1=self.s_region[l], sr2=self.s_region[l])
