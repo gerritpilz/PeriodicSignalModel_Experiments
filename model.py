@@ -37,27 +37,31 @@ class TimesBlockConv(nn.Module):
         super().__init__()
 
         self.conv_list = nn.ModuleList([
-            nn.Conv2d(d_model, d_model, kernel_size=(1, 1), padding=0),
-            nn.Conv2d(d_model, d_model, kernel_size=(3, 3), padding=1),
-            nn.Conv2d(d_model, d_model, kernel_size=(5, 5), padding=2),
+            nn.Conv2d(d_model, d_model, kernel_size=1, padding=0),
+            nn.Conv2d(d_model, d_model, kernel_size=3, padding=1),
+            nn.Conv2d(d_model, d_model, kernel_size=5, padding=2),
+            nn.Conv2d(d_model, d_model, kernel_size=7, padding=3),
         ])
+        self.proj = nn.Conv2d(len(self.conv_list) * d_model, d_model, kernel_size=1)
 
         self.activation = nn.GELU()
         self.bn = nn.BatchNorm2d(d_model)
 
     def forward(self, x):
-        # x: (B, M, N, C)
+        x_in = x
 
-        x = x.permute(0, 3, 1, 2)  # -> (B, C, M, N)
+        x = x.permute(0, 3, 1, 2)
 
-        out = 0
-        for conv in self.conv_list:
-            out = out + conv(x)
+        outs = [conv(x) for conv in self.conv_list]
+        out = torch.cat(outs, dim=1)
 
+        out = self.proj(out)
         out = self.bn(out)
         out = self.activation(out)
 
-        out = out.permute(0, 2, 3, 1)  # -> (B, M, N, C)
+        out = out + x
+
+        out = out.permute(0, 2, 3, 1)
         return out
 
 

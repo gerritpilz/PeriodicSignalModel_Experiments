@@ -13,8 +13,8 @@ d_embd = 64
 dropout = 0.2
 
 # model
-n_timeBlocks = 8
-k_periods = 6
+n_timeBlocks = 16
+k_periods = 12
 
 # filter
 bw = 1
@@ -84,7 +84,7 @@ val_loader = DataLoader(val_dataset, batch_size=batch_size)
 model = model(n_channels, seq_len, d_embd, dropout, n_timeBlocks, k_periods, bw)
 model = model.to('cuda')
 
-optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
+optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
 
 # training loop
 model.train()
