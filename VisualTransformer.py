@@ -8,7 +8,7 @@ class pool(nn.Module):
     def __init__(self, d_embd, levels, s_pool):
         super().__init__()
         self.pool_layers = nn.ModuleList(
-            [nn.Linear(kernel * kernel * d_embd + 1, d_embd) for kernel in s_pool[1:]])  # no pooling for lvl 1
+            [nn.Linear(kernel * kernel * d_embd + 1, d_embd) for kernel in s_pool[1:]])  # no pooling for lvl 1, +1 for percent valid tokens
         self.levels = levels
         self.s_pool = s_pool
 
@@ -78,7 +78,7 @@ class multi_head(nn.Module):
         idx = torch.arange(0, d_head // 4, device='cuda')
         self.register_buffer('rad', theta ** (-2 * idx / d_head))
 
-    def forward(self, pooled_maps, pooled_masks, feature_map, mask_q, cy, cx, freq_off):
+    def forward(self, pooled_maps, pooled_masks, feature_map, mask_q, cy, cx, freq_off, pooled_freqOff):
         # query, key, value
         Q = self.query(feature_map)  # (B, M, N, H*C)
         K = [self.key(pooled_maps[i]) for i in range(self.levels)]  # l*(B, M, N, H*C)
@@ -94,7 +94,7 @@ class multi_head(nn.Module):
         M_grid, N_grid = M_idx[:, None], N_idx[None, :]
         freq_off = rearrange(freq_off, 'b m n c -> b 1 m n c')  # add n_head dim
 
-        Q = Q * freq_off[..., M_grid, N_grid, :self.d_head] + freq_off[..., M_grid, N_grid, self.d_head:] # Film
+        Q = Q * freq_off[..., :self.d_head] + freq_off[..., self.d_head:] # Film
         Q = self.Rope(Q, M_idx, N_idx)
         queries = rearrange(Q, 'b h (Mw sw1) (Nw sw2) c -> b h Mw Nw (sw1 sw2) c', sw1=self.s_win, sw2=self.s_win)
 
@@ -105,9 +105,10 @@ class multi_head(nn.Module):
             K_l = rearrange(K[l], 'b m n (h c) -> b h m n c', h=self.n_heads, c=self.d_head)
             V_l = rearrange(V[l], 'b m n (h c) -> b h m n c', h=self.n_heads, c=self.d_head)
             pooled_mask_l = rearrange(pooled_masks[l], 'b m n c -> b 1 m n c')  # add n_head dim
+            pooled_freqOff_l = rearrange(pooled_freqOff[l], 'b m n c -> b 1 m n c')
 
             # frequency and Rope Embedding for Keys
-            K_l = K_l * freq_off[..., M_grid, N_grid, :self.d_head] + freq_off[..., M_grid, N_grid, self.d_head:]  # Film
+            K_l = K_l * pooled_freqOff_l[..., :self.d_head] + pooled_freqOff_l[..., self.d_head:]  # Film
             M_idx = torch.arange(K[l].shape[-3], device='cuda')
             N_idx = torch.arange(K[l].shape[-2], device='cuda')
             K_l = self.Rope(K_l, M_idx * self.s_pool, N_idx * self.s_pool)
@@ -233,7 +234,8 @@ class block(nn.Module):
     def __init__(self, d_embd, d_head, n_heads, s_win, levels, s_region, s_pool, dropout, theta):
         super().__init__()
         self.ln1 = nn.LayerNorm(d_embd)
-        self.pool = pool(d_embd, levels, s_pool)
+        self.pool_featureMap = pool(d_embd, levels, s_pool)
+        self.pool_freqOff = pool(2*d_head, levels, s_pool)
         self.att = multi_head(d_embd, d_head, n_heads, s_win, levels, s_region, s_pool, dropout, theta)
         self.ffwd = FeedForward(d_embd, dropout)
         self.ln2 = nn.LayerNorm(d_embd)
@@ -245,7 +247,8 @@ class block(nn.Module):
         feature_map = self.ln1(feature_map_in)
 
         # pool feature map and freq_off
-        pooled_maps, pooled_masks = self.pool(feature_map, mask)
+        pooled_maps, pooled_masks = self.pool_featureMap(feature_map, mask)
+        pooled_freqOff = self.pool_freqOff(freq_off, mask)
 
         # pad feature map for window alignment
         B, M, N, C = feature_map.shape
@@ -271,7 +274,7 @@ class block(nn.Module):
         cx = torch.arange(Nw, device='cuda') * self.s_win + self.s_win // 2
 
         # MultiHead Attention
-        out = self.att(pooled_maps, pooled_masks, feature_map, mask_q, cy, cx, freq_off)[:, :M, :N, :]
+        out = self.att(pooled_maps, pooled_masks, feature_map, mask_q, cy, cx, freq_off, pooled_freqOff)[:, :M, :N, :]
         out = out + feature_map_in
 
         # Layer Norm 2, MLP
