@@ -137,6 +137,7 @@ class block(nn.Module):
 
         timeframes = torch.stack(fin_timeframes, dim=1) # (B, k, T, C)
         amps = torch.stack(amps_list, dim=1)           # (B, k, T, C)
+        f_off = torch.stack(f_off_list, dim=1)
 
         # MLP
         x = self.MLP(timeframes)
