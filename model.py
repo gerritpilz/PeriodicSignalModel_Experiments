@@ -4,12 +4,12 @@ from torch.nn import functional as F
 from einops import rearrange
 
 class MLP(nn.Module):
-     def __init__(self, d_in, dropout):
+     def __init__(self, d_in, d_out, dropout):
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(d_in, 2 * d_in),
             nn.GELU(),
-            nn.Linear(2 * d_in, d_in),
+            nn.Linear(2 * d_out, d_out),
             nn.Dropout(dropout)
          )
 
@@ -69,7 +69,7 @@ class block(nn.Module):
         self.times_conv = TimesBlockConv(d_embd)
         self.ln = nn.LayerNorm(d_embd)
         self.attention =  nn.MultiheadAttention(embed_dim=d_embd, num_heads=n_heads, batch_first=True)
-        self.agg_MLP = MLP(d_embd*k_periods, dropout)
+        self.agg_MLP = MLP(d_embd*k_periods, d_embd, dropout)
 
         self.d_embd = d_embd
         self.seq_len = seq_len
