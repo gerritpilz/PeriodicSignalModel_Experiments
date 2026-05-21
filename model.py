@@ -91,7 +91,8 @@ class block(nn.Module):
         to_int = lambda x: int(x.item())
 
         fin_timeframes=[]
-        fin_amps_t=[]
+        amps_list=[]
+        f_off_list=[]
         for k in range(self.k_periods):
             nk_max = to_int(p[:, k].max())  # (1): max num columns of period k timeframes across batches
             mk_max = to_int(torch.ceil(T / p[:, k]).max())
@@ -100,11 +101,11 @@ class block(nn.Module):
             n = p[:, k]           # (B): num columns of 2D timeframe of period k for each batch
             m = (T + pad) // n
 
-            amp_t, f_off = self.bandpass(x, freq_bin[:, k])  # (B, T, C) each
-            fin_amps_t.append(amp_t) # append amp_t tensor to collect all k
+            amp, f_off = self.bandpass(x, freq_bin[:, k])  # (B, T, C) each
+            amps_list.append(amp) # append amp_t tensor to collect all k
+            f_off_list.append(f_off)
 
             batch_timeframes = []
-            batch_f_off = []
             for b in range(B):
                 pad_b = pad[b]
                 m_b = m[b]
@@ -112,19 +113,14 @@ class block(nn.Module):
 
                 # shape/pad dims to create one tensor of 2D timeframes for each k
                 timeframe_b_k = F.pad(x[b], (0, 0, 0,pad_b),) # (T+pad, C): pad time dim
-                f_off_embd_b = F.pad(f_off[b], (0, 0, 0, pad_b))
 
                 # 2D transform
                 timeframe_b_k = rearrange(timeframe_b_k, '(m n) c -> m n c', n=n_b)
                 timeframe_b_k = F.pad(timeframe_b_k, (0,0, 0,nk_max - n_b, 0,mk_max - m_b))  # pad to match dims across batches for fixed k
-                f_off_embd_b = rearrange(f_off_embd_b, '(m n) c -> m n c', n=n_b)
-                f_off_embd_b = F.pad(f_off_embd_b, (0,0, 0,nk_max - n_b, 0,mk_max - m_b))
 
                 batch_timeframes.append(timeframe_b_k) # (M_max, N_max, C)
-                batch_f_off.append(f_off_embd_b)
 
             timeframes_k = torch.stack(batch_timeframes, dim=0) # (B, M_max, N_max C)
-            f_off = torch.stack(batch_f_off, dim=0)  # (B, M_max, N_max, 2*d_head)
 
             # Conv returns (B,M_max,N_max,C)
             timeframes_k = self.times_conv(timeframes_k)
@@ -140,7 +136,7 @@ class block(nn.Module):
             fin_timeframes.append(torch.stack(fin_timeframes_k, dim=0)) # (B, T, C)
 
         timeframes = torch.stack(fin_timeframes, dim=1) # (B, k, T, C)
-        amps = torch.stack(fin_amps_t, dim=1)           # (B, k, T, C)
+        amps = torch.stack(amps_list, dim=1)           # (B, k, T, C)
 
         # MLP
         x = self.MLP(timeframes)
