@@ -152,8 +152,6 @@ class block(nn.Module):
 
         # Film
         param = self.MLP_film(f_off)
-        print(param.shape)
-        print(x.shape)
         #param = rearrange(param, 'b t c')
         x_film = x*param[..., :self.d_embd] + param[..., self.d_embd:]
         x = x + x_film
@@ -163,6 +161,8 @@ class block(nn.Module):
         dx = x * weights  # (B, k, T, C)
         dx = rearrange(dx, 'b k t c -> b t (k c)')
         dx = self.agg_MLP(dx)      # (B T k*C) -> (B T C)
+        print(dx.shape)
+        print(x.shape)
         out = x + dx
 
         return out
