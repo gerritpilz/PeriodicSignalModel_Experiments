@@ -158,11 +158,10 @@ class block(nn.Module):
 
         # Adaptive Aggregation
         weights = F.softmax(amps, dim=1)         # (B, k, T, C) -> softmax across k, importance of freq k at each time/channel
-        dx = x * weights  # (B, k, T, C)
-        dx = rearrange(dx, 'b k t c -> b t (k c)')
-        dx = self.agg_MLP(dx)      # (B T k*C) -> (B T C)
-        print(dx.shape)
-        print(x.shape)
+        x_weighted = x * weights  # (B, k, T, C)
+        x = x_weighted.sum(dim=1)
+        dx = rearrange(x_weighted, 'b k t c -> b t (k c)')
+        dx = self.agg_MLP(dx)      # (B T k*C) -> (B T C); learn cross-period dependencies
         out = x + dx
 
         return out
