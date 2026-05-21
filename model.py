@@ -155,6 +155,9 @@ class block(nn.Module):
 
         # Film
         param = self.MLP_film(f_off)
+        print(param.shape)
+        print(x.shape)
+        #param = rearrange(param, 'b t c')
         x_film = x*param[..., :self.d_embd] + param[..., self.d_embd:]
         x = x + x_film
 
