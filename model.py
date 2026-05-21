@@ -69,7 +69,7 @@ class block(nn.Module):
         self.times_conv = TimesBlockConv(d_embd)
         self.ln = nn.LayerNorm(d_embd)
         self.attention =  nn.MultiheadAttention(embed_dim=d_embd, num_heads=n_heads, batch_first=True)
-        self.agg_MLP = MLP(d_embd, dropout)
+        self.agg_MLP = MLP(d_embd*k_periods, dropout)
 
         self.d_embd = d_embd
         self.seq_len = seq_len
