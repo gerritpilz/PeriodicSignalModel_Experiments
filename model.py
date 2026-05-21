@@ -150,11 +150,12 @@ class block(nn.Module):
         x_att = rearrange(x_att, '(b k) t c -> b k t c', b=B)
         x = x + x_att
 
+        '''
         # Film
         param = self.MLP_film(f_off)
-        #param = rearrange(param, 'b t c')
         x_film = x*param[..., :self.d_embd] + param[..., self.d_embd:]
         x = x + x_film
+        '''
 
         # Adaptive Aggregation
         weights = F.softmax(amps, dim=1)         # (B, k, T, C) -> softmax across k, importance of freq k at each time/channel
