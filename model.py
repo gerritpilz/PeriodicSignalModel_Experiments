@@ -142,6 +142,7 @@ class block(nn.Module):
         # MLP
         x = self.MLP(timeframes)
 
+        '''
         # Attention optional
         B = x.shape[0]
         x_att = self.ln(x)
@@ -149,6 +150,7 @@ class block(nn.Module):
         x_att, _ = self.attention(x_att, x_att, x_att)
         x_att = rearrange(x_att, '(b k) t c -> b k t c', b=B)
         x = x + x_att
+        '''
 
         '''
         # Film
@@ -174,13 +176,13 @@ class block(nn.Module):
         Zf = Xf * H
         z = torch.fft.ifft(Zf, dim=-2)
         return z
-    '''
+
     def Hf_bandpass(self, f0_bin):
         f_bin = torch.arange(self.seq_len//2 + 1, device='cuda') # freq bin vector
         f0_bin = rearrange(f0_bin, 'b -> b 1') # add freq dim
         H = (torch.abs(f_bin - f0_bin) <= self.bw).float()  # (B 1) * (1 F) = (B F)
         return H
-    '''
+
 
     def gaussian_bandpass(self, f0_bin, sigma=1): #sigma 1 optimal
         f_bin = torch.arange(self.seq_len // 2 + 1, device='cuda')  # freq bin vector
@@ -204,7 +206,7 @@ class block(nn.Module):
     def bandpass(self, x, f0_bin):
 
         Xf = torch.fft.rfft(x, dim=-2) # (B F C)
-        Hf = self.gaussian_bandpass(f0_bin, 1) # (B F)´  #!!!!!!!!!!!!!!!!!!!!!!!!!!! sigma umstellen
+        Hf = self.Hf_bandpass(f0_bin, 1) # (B F)´  #!!!!!!!!!!!!!!!!!!!!!!!!!!! sigma umstellen
         Hf = rearrange(Hf, 'b f -> b f 1')
         Xf_filt = Hf*Xf
         x_filt = torch.fft.irfft(Xf_filt, dim=-2) # (B T C)
