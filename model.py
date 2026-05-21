@@ -206,7 +206,7 @@ class block(nn.Module):
     def bandpass(self, x, f0_bin):
 
         Xf = torch.fft.rfft(x, dim=-2) # (B F C)
-        Hf = self.Hf_bandpass(f0_bin, 1) # (B F)´  #!!!!!!!!!!!!!!!!!!!!!!!!!!! sigma umstellen
+        Hf = self.Hf_bandpass(f0_bin) # (B F)´  #!!!!!!!!!!!!!!!!!!!!!!!!!!! sigma umstellen
         Hf = rearrange(Hf, 'b f -> b f 1')
         Xf_filt = Hf*Xf
         x_filt = torch.fft.irfft(Xf_filt, dim=-2) # (B T C)
