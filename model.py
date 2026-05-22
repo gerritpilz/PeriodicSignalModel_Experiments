@@ -203,10 +203,11 @@ class block(nn.Module):
 
         amp_t = torch.abs(z)
 
+        T = x.shape[1]
         phase_t = self.unwrap(torch.angle(z), dim=-2)  # angle returns [-pi, pi] -> unwrap
         freq_t = torch.diff(phase_t, dim=-2) / (2.0 * torch.pi)  # (B T C)
         freq_t = F.pad(freq_t, (0, 0, 0, 1))  # add lost time step
-        f0 = rearrange(f0_bin/self.seq_len, 'b -> b 1 1')
+        f0 = f0_bin/T
         freq_offset = f0 - freq_t
 
         return amp_t, freq_offset # both (B T C)
