@@ -43,7 +43,6 @@ class TimesBlockConv(nn.Module):
         self.proj = nn.Conv2d(len(self.conv_list) * d_model, d_model, kernel_size=1)
 
         self.activation = nn.GELU()
-        self.bn = nn.BatchNorm2d(d_model)
 
     def forward(self, x):
         x = x.permute(0, 3, 1, 2)
@@ -52,7 +51,6 @@ class TimesBlockConv(nn.Module):
         out = torch.cat(outs, dim=1)
 
         out = self.proj(out)
-        out = self.bn(out)
         out = self.activation(out)
 
         out = out + x
