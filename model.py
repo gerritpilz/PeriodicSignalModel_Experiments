@@ -166,7 +166,6 @@ class block(nn.Module):
 
     def Hf_bandpass(self, f0_bin):
         f_bin = torch.arange(self.seq_len//2 + 1, device='cuda') # freq bin vector
-        f0_bin = rearrange(f0_bin, 'b -> b 1') # add freq dim
         H = (torch.abs(f_bin - f0_bin) <= self.bw).float()  # (B 1) * (1 F) = (B F)
         return H
 
