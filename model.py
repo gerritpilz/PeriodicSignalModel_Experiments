@@ -88,7 +88,7 @@ class block(nn.Module):
         x_in = x
 
         # top k frequencies
-        periods, freq_bins, amps_k = self.get_periods(x)  # amps, periods, freq_bin
+        periods, freq_bins, amps_k_batch = self.get_periods(x)  # amps, periods, freq_bin
 
         x_list=[]
         amps_list=[]
@@ -139,7 +139,7 @@ class block(nn.Module):
         xf = x + x_film
         '''
 
-
+        '''
         # Adaptive Aggregation
         amps = self.MLP(amps)
         weights = F.softmax(amps, dim=1)         # (B, k, T, C) -> softmax across k, importance of freq k at each time/channel
@@ -148,14 +148,14 @@ class block(nn.Module):
         #dx = rearrange(x_weighted, 'b k t c -> b t (k c)')
         #dx = self.agg_MLP(dx)      # (B T k*C) -> (B T C); learn cross-period dependencies
         out = x_weighted
-
         '''
+
+
         # Aggregation original
-        weights = F.softmax(amps_k)
-        weights = rearrange(weights, 'k -> k 1 1')
+        weights = F.softmax(amps_k_batch, dim=-1)   # (B k)
+        weights = rearrange(weights, 'b k -> b k 1')
         x = x * weights
         out = x.sum(1)
-        '''
 
         return out
 
@@ -218,12 +218,18 @@ class block(nn.Module):
 
         X_f = torch.fft.rfft(x, dim=-2)
         X_f = X_f[:, 1:, :]  # drop row 0 -> const term
+
         amps = torch.abs(X_f)
-        amps = torch.mean(amps, dim=(0,-1))  # avg across B,C
-        amps_k, freq_bin_k = torch.topk(amps, k=self.k_periods)  # top k amps, freq_bins
-        freq_bin_k = freq_bin_k + 1 # row 0 = freq 0 sliced out before -> new row 0 refers to freq 1 -> shift freq_k by one
+        amps = torch.mean(amps, dim=-1)  # (B F)
+        amps_mean = torch.mean(amps, dim=0)
+        amps_k, freq_bin_k = torch.topk(amps_mean, k=self.k_periods)
+
+        amps_k_batch = amps[:, freq_bin_k]
+
+        freq_bin_k = freq_bin_k + 1  # row 0 = freq 0 sliced out before -> new row 0 refers to freq 1 -> shift freq_k by one
         periods_k = T // freq_bin_k
-        return periods_k, freq_bin_k, amps_k
+
+        return periods_k, freq_bin_k, amps_k_batch
 
 
 class model(nn.Module):
