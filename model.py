@@ -166,14 +166,14 @@ class block(nn.Module):
 
     def Hf_bandpass(self, f0_bin):
         f_bin = torch.arange(self.seq_len//2 + 1, device='cuda') # freq bin vector
-        H = (torch.abs(f_bin - f0_bin) <= self.bw).float()  # (B 1) * (1 F) = (B F)
+        H = (torch.abs(f_bin - f0_bin) <= self.bw).float()  # (F)
         return H
 
 
     def gaussian_bandpass(self, f0_bin, sigma=1): #sigma 1 optimal
         f_bin = torch.arange(self.seq_len // 2 + 1, device='cuda')  # freq bin vector
         d = torch.abs(f_bin - f0_bin)
-        H = torch.exp(-(d ** 2) / (2 * sigma ** 2))
+        H = torch.exp(-(d ** 2) / (2 * sigma ** 2)) # (F)
         return H
 
     def unwrap(self, phase, dim):
@@ -191,8 +191,8 @@ class block(nn.Module):
     def bandpass(self, x, f0_bin):
 
         Xf = torch.fft.rfft(x, dim=-2) # (B F C)
-        Hf = self.Hf_bandpass(f0_bin) # (B F)´  #!!!!!!!!!!!!!!!!!!!!!!!!!!! sigma umstellen
-        Hf = rearrange(Hf, 'b f -> b f 1')
+        Hf = self.Hf_bandpass(f0_bin) # (B F)  #!!!!!!!!!!!!!!!!!!!!!!!!!!! sigma umstellen
+        Hf = rearrange(Hf, 'f -> f 1')
         Xf_filt = Hf*Xf
         x_filt = torch.fft.irfft(Xf_filt, dim=-2) # (B T C)
 
@@ -201,11 +201,10 @@ class block(nn.Module):
 
         amp_t = torch.abs(z)
 
-        T = x.shape[1]
         phase_t = self.unwrap(torch.angle(z), dim=-2)  # angle returns [-pi, pi] -> unwrap
         freq_t = torch.diff(phase_t, dim=-2) / (2.0 * torch.pi)  # (B T C)
         freq_t = F.pad(freq_t, (0, 0, 0, 1))  # add lost time step
-        f0 = f0_bin/T
+        f0 = f0_bin/self.seq_len
         freq_offset = f0 - freq_t
 
         return amp_t, freq_offset # both (B T C)
