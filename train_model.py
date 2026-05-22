@@ -4,7 +4,7 @@ import pandas as pd
 from torch.utils.data import Dataset, DataLoader
 import matplotlib.pyplot as plt
 from model import model
-from IPython.display import display
+
 
 # hyperparameters
 n_channels = 10
@@ -118,14 +118,14 @@ for epoch in range(n_epochs):
 
                 x_filt, _ = model.blocks[0].bandpass(x_sample, freq_bins[0])
 
-                fig = plt.figure(figsize=(8, 4))
-
                 plt.figure(figsize=(8, 4))
                 plt.plot(x_sample[0, :, 0].detach().cpu(), label="original")
                 plt.plot(x_filt[0, :, 0].detach().cpu(), label="filtered")
                 plt.legend()
                 plt.title(f"Step {it}")
-                display(fig)
+
+                plt.savefig(f"/content/plot_{it}.png")
+                plt.close()
 
 # generate from model
 model.eval()
