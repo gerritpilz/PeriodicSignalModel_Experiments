@@ -138,7 +138,7 @@ class block(nn.Module):
         xf = x + x_film
         '''
 
-        '''
+
         # Adaptive Aggregation
         amps = self.MLP(amps)
         weights = F.softmax(amps, dim=1)         # (B, k, T, C) -> softmax across k, importance of freq k at each time/channel
@@ -147,13 +147,14 @@ class block(nn.Module):
         #dx = rearrange(x_weighted, 'b k t c -> b t (k c)')
         #dx = self.agg_MLP(dx)      # (B T k*C) -> (B T C); learn cross-period dependencies
         out = x + x_weighted
-        '''
 
+        '''
         # Aggregation original
         weights = F.softmax(amps_k)
         weights = rearrange(weights, 'k -> k 1 1')
         x = x * weights
         out = x.sum(1)
+        '''
 
         return out
 
