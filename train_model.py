@@ -98,7 +98,7 @@ for epoch in range(n_epochs):
         xb, yb = xb.to('cuda'), yb.to('cuda')
         pred = model(xb)
         pred = pred[:, -pred_len:, :]
-        loss = F.mse_loss(pred, yb)
+        loss = F.mse_loss(pred, yb)*std**2
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
         optimizer.step()
