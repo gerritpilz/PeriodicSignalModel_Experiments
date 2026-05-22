@@ -245,7 +245,7 @@ class model(nn.Module):
 
     def forward(self, input, eval=False):
         x = self.embd(input)
-        x = self.blocks(x, eval)
+        x = self.blocks(x)
         pred = self.embd_back(x)  # (B, T, C)
         return pred
 
