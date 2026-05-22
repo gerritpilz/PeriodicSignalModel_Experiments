@@ -2,6 +2,7 @@ import torch
 from torch.nn import functional as F
 import pandas as pd
 from torch.utils.data import Dataset, DataLoader
+import matplotlib.pyplot as plt
 from model import model
 
 # hyperparameters
