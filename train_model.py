@@ -4,6 +4,7 @@ import pandas as pd
 from torch.utils.data import Dataset, DataLoader
 import matplotlib.pyplot as plt
 from model import model
+from IPython.display import clear_output
 
 # hyperparameters
 n_channels = 10
@@ -111,6 +112,7 @@ for epoch in range(n_epochs):
 
             if it % 20 == 0:  # <-- nur alle 20 steps
                 x_sample = xb[0:1]  # ein Sample (B=1)
+                clear_output(wait=True)
 
                 # irgendeine Frequenz nehmen (z.B. erste)
                 periods, freq_bins, _ = model.blocks[0].get_periods(x_sample)
