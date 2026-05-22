@@ -84,7 +84,6 @@ class block(nn.Module):
         self.register_buffer("hilbert_filter", H)
 
     def forward(self, x, eval=False):
-        print(x.shape)
         B,T,C = x.shape
 
         # top k frequencies
