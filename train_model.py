@@ -117,7 +117,8 @@ for epoch in range(n_epochs):
                 periods, freq_bins, _ = model.blocks[0].get_periods(x_sample)
 
                 x_filt, _ = model.blocks[0].bandpass(x_sample, freq_bins[0])
-                print(torch.isnan(x_filt).any())
+
+                fig = plt.figure(figsize=(8, 4))
 
                 plt.figure(figsize=(8, 4))
                 plt.plot(x_sample[0, :, 0].detach().cpu(), label="original")
