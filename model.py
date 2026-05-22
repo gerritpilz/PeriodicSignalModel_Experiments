@@ -122,7 +122,7 @@ class block(nn.Module):
         # MLP
         x = self.MLP(x)
 
-        '''
+
         # Attention optional
         B = x.shape[0]
         x_att = self.ln(x)
@@ -130,7 +130,7 @@ class block(nn.Module):
         x_att, _ = self.attention(x_att, x_att, x_att)
         x_att = rearrange(x_att, '(b k) t c -> b k t c', b=B)
         x = x + x_att
-        '''
+
 
         '''
         # Film
@@ -231,6 +231,7 @@ class model(nn.Module):
         super().__init__()
 
         self.embd = nn.Linear(n_channels, d_embd)
+        self.ln = nn.LayerNorm(d_embd)
         self.blocks = nn.Sequential(*[block(seq_len, d_embd, dropout, k_periods, bw, n_heads) for _ in range(n_timeBlocks)])
         self.embd_back = nn.Linear(d_embd, n_channels)
 
@@ -246,6 +247,7 @@ class model(nn.Module):
 
     def forward(self, input, eval=False):
         x = self.embd(input)
+        x = self.ln(x)
         x = self.blocks(x)
         pred = self.embd_back(x)  # (B, T, C)
         return pred
