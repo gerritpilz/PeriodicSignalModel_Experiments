@@ -130,11 +130,12 @@ class block(nn.Module):
         x = x + x_att
         '''
 
-
+        '''
         # Film
         param = self.MLP_film(f_off)
         x_film = x*param[..., :self.d_embd] + param[..., self.d_embd:]
         x = x + x_film
+        '''
 
 
         '''
@@ -152,6 +153,13 @@ class block(nn.Module):
         # Aggregation original
         weights = F.softmax(amps_k_batch, dim=-1)   # (B k)
         weights = rearrange(weights, 'b k -> b k 1 1')
+
+        w = torch.mean(amps, dim=-1)
+        w = w/torch.mean(w, dim=1, keepdim=True)
+        w = rearrange(w, 'b k t -> b k t 1')
+
+        weights = w * weights
+
         x = x * weights
         x = x.sum(1)
 
