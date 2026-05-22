@@ -153,7 +153,7 @@ class block(nn.Module):
 
         # Aggregation original
         weights = F.softmax(amps_k_batch, dim=-1)   # (B k)
-        weights = rearrange(weights, 'b k -> b k 1')
+        weights = rearrange(weights, 'b k -> b k 1 1')
         x = x * weights
         out = x.sum(1)
 
