@@ -85,6 +85,7 @@ class block(nn.Module):
 
     def forward(self, x, eval=False):
         B,T,C = x.shape
+        x_in = x
 
         # top k frequencies
         periods, freq_bins, amps_k = self.get_periods(x)  # amps, periods, freq_bin
@@ -146,7 +147,7 @@ class block(nn.Module):
         x_weighted = x_weighted.sum(dim=1)
         #dx = rearrange(x_weighted, 'b k t c -> b t (k c)')
         #dx = self.agg_MLP(dx)      # (B T k*C) -> (B T C); learn cross-period dependencies
-        out = x + x_weighted
+        out = x_in + x_weighted
 
         '''
         # Aggregation original
