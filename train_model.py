@@ -78,6 +78,8 @@ std = train_data.std(dim=0)
 train_data = (train_data) / std
 val_data = (val_data) / std
 
+std = std.to('cuda')
+
 
 # Dataset, Dataloader
 train_dataset = weatherDataset(train_data, seq_len, pred_len)
