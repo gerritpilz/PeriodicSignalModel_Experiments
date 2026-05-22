@@ -74,8 +74,8 @@ val_data = data[n:]
 # Normalize data
 mean = train_data.mean(dim=0)
 std = train_data.std(dim=0)
-train_data = train_data / std
-val_data = val_data / std
+train_data = (train_data-mean) / std
+val_data = (val_data-mean) / std
 
 # Dataset, Dataloader
 train_dataset = weatherDataset(train_data, seq_len, pred_len)
