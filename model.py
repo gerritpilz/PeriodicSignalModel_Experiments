@@ -155,9 +155,9 @@ class block(nn.Module):
         weights = F.softmax(amps_k_batch, dim=-1)   # (B k)
         weights = rearrange(weights, 'b k -> b k 1 1')
         x = x * weights
-        out = x.sum(1)
+        x = x.sum(1)
 
-        return out
+        return x + x_in
 
     def analytic_signal(self, x):
         H = self.hilbert_filter
