@@ -148,7 +148,7 @@ class block(nn.Module):
         #dx = self.agg_MLP(dx)      # (B T k*C) -> (B T C); learn cross-period dependencies
         out = x_weighted
         '''
-        '''
+
 
         # Aggregation original
         weights = F.softmax(amps_k_batch, dim=-1)   # (B k)
@@ -169,6 +169,7 @@ class block(nn.Module):
 
         x = x * weights
         x = x.sum(1)
+        '''
         return x + x_in
 
     def analytic_signal(self, x):
