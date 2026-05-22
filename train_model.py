@@ -108,6 +108,23 @@ for epoch in range(n_epochs):
             losses = estimate_loss()
             print(f"step {it}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
 
+            if it % 20 == 0:  # <-- nur alle 20 steps
+                x_sample = xb[0:1]  # ein Sample (B=1)
+
+                # irgendeine Frequenz nehmen (z.B. erste)
+                periods, freq_bins, _ = model.blocks[0].get_periods(x_sample)
+
+                x_filt, _ = model.blocks[0].bandpass(x_sample, freq_bins[0])
+
+                import matplotlib.pyplot as plt
+
+                plt.figure(figsize=(8, 4))
+                plt.plot(x_sample[0, :, 0].detach().cpu(), label="original")
+                plt.plot(x_filt[0, :, 0].detach().cpu(), label="filtered")
+                plt.legend()
+                plt.title(f"Step {it}")
+                plt.show()
+
 # generate from model
 model.eval()
 context = data[-seq_len:, :]
