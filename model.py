@@ -246,13 +246,7 @@ class model(nn.Module):
 
     def forward(self, input, eval=False):
         x = self.embd(input)
-
-        mean = x.mean(dim=1, keepdim=True)
-        std = x.std(dim=1, keepdim=True)
-        x = (x - mean) / (std + 1e-5)
-
         x = self.blocks(x)
-        x = x* (std + 1e-5) + mean
         pred = self.embd_back(x)  # (B, T, C)
         return pred
 
