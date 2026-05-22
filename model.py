@@ -253,6 +253,7 @@ class model(nn.Module):
 
         x = self.blocks(x)
         pred = self.embd_back(x)  # (B, T, C)
+        pred = pred * (std + 1e-5) + mean
         return pred
 
     def generate(self, context, max_new_pred):   #  context: (B, T_context, C)
