@@ -130,15 +130,15 @@ class block(nn.Module):
         x = x + x_att
         '''
 
-        '''
+
         # Film
         param = self.MLP_film(f_off)
         x_film = x*param[..., :self.d_embd] + param[..., self.d_embd:]
-        xf = x + x_film
-        '''
+        x = x + x_film
+
 
         '''
-        # Adaptive Aggregation
+        #Adaptive Aggregation
         amps = self.MLP(amps)
         weights = F.softmax(amps, dim=1)         # (B, k, T, C) -> softmax across k, importance of freq k at each time/channel
         x_weighted = x * weights  # (B, k, T, C)
