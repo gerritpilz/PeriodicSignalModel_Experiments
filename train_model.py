@@ -9,12 +9,12 @@ n_channels = 10
 seq_len = 128
 pred_len = 32
 batch_size = 16
-d_embd = 64
+d_embd = 128
 dropout = 0.2
 
 # model
-n_timeBlocks = 12
-k_periods = 8
+n_timeBlocks = 6
+k_periods = 4
 
 # filter
 bw = 1

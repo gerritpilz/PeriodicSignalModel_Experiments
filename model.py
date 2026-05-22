@@ -122,7 +122,7 @@ class block(nn.Module):
         # MLP
         x = self.MLP(x)
 
-
+        '''
         # Attention optional
         B = x.shape[0]
         x_att = self.ln(x)
@@ -130,7 +130,7 @@ class block(nn.Module):
         x_att, _ = self.attention(x_att, x_att, x_att)
         x_att = rearrange(x_att, '(b k) t c -> b k t c', b=B)
         x = x + x_att
-
+        '''
 
         '''
         # Film
