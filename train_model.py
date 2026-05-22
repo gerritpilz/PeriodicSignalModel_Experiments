@@ -78,7 +78,7 @@ std = train_data.std(dim=0)
 train_data = (train_data) / std
 val_data = (val_data) / std
 
-std = std.to('cuda')
+print(std)
 
 
 # Dataset, Dataloader
@@ -100,7 +100,7 @@ for epoch in range(n_epochs):
         xb, yb = xb.to('cuda'), yb.to('cuda')
         pred = model(xb)
         pred = pred[:, -pred_len:, :]
-        loss = F.mse_loss(pred, yb)*std**2
+        loss = F.mse_loss(pred, yb)
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
         optimizer.step()
