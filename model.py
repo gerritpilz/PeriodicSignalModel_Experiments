@@ -83,64 +83,43 @@ class block(nn.Module):
         H[seq_len // 2] = 1
         self.register_buffer("hilbert_filter", H)
 
-    def forward(self, x):
+    def forward(self, x, eval=False):
         B,T,C = x.shape
-        p, freq_bin = self.get_periods(x)  # amps, periods, freq_bin: (B, k)
 
-        # helper
-        to_int = lambda x: int(x.item())
+        # top k frequencies
+        periods, freq_bins, amps_k = self.get_periods(x)  # amps, periods, freq_bin
 
-        fin_timeframes=[]
+        x_list=[]
         amps_list=[]
         f_off_list=[]
         for k in range(self.k_periods):
-            nk_max = to_int(p[:, k].max())  # (1): max num columns of period k timeframes across batches
-            mk_max = to_int(torch.ceil(T / p[:, k]).max())
-
-            pad = (-T) % p[:, k]  # (B): pad for 1D time of period k for each batch
-            n = p[:, k]           # (B): num columns of 2D timeframe of period k for each batch
-            m = (T + pad) // n
-
-            amp, f_off = self.bandpass(x, freq_bin[:, k])  # (B, T, C) each
-            amps_list.append(amp) # append amp_t tensor to collect all k
+            # Instant amp and freq
+            amp, f_off = self.bandpass(x, freq_bins[k])  # (B, T, C) each
+            amps_list.append(amp)  # append amp_t tensor to collect all k
             f_off_list.append(f_off)
 
-            batch_timeframes = []
-            for b in range(B):
-                pad_b = pad[b]
-                m_b = m[b]
-                n_b = n[b]
+            # pad dims for 2D
+            pad = (-T) % periods[k]     # pad for 1D time of period k
+            n = periods[k]         # num columns of 2D timeframe of period k
 
-                # shape/pad dims to create one tensor of 2D timeframes for each k
-                timeframe_b_k = F.pad(x[b], (0, 0, 0,pad_b),) # (T+pad, C): pad time dim
+            # 2D reshape
+            x_k = F.pad(x,(0, 0, 0, pad))  # (B T+pad C)
+            x_k = rearrange(x_k, 'b (m n) c -> b m n c', n=n.item())
 
-                # 2D transform
-                timeframe_b_k = rearrange(timeframe_b_k, '(m n) c -> m n c', n=n_b)
-                timeframe_b_k = F.pad(timeframe_b_k, (0,0, 0,nk_max - n_b, 0,mk_max - m_b))  # pad to match dims across batches for fixed k
+            # Conv
+            x_k = self.times_conv(x_k)
 
-                batch_timeframes.append(timeframe_b_k) # (M_max, N_max, C)
+            # flatten 1D
+            x_k = rearrange(x_k, 'b m n c -> b (m n) c')
+            x_k = x_k[:, :T, :]  # trunc away padded time
+            x_list.append(x_k)
 
-            timeframes_k = torch.stack(batch_timeframes, dim=0) # (B, M_max, N_max C)
-
-            # Conv returns (B,M_max,N_max,C)
-            timeframes_k = self.times_conv(timeframes_k)
-
-            # flatten to 1D
-            fin_timeframes_k = []
-            for b in range(B):
-                timeframe_b_k = timeframes_k[b, :to_int(m[b]), :to_int(n[b]), :]  # trunc away pads for M_max/N_max
-                timeframe_b_k = rearrange(timeframe_b_k, 'm n c -> (m n) c')  # flatten to 1D
-                timeframe_b_k = timeframe_b_k[:T, :] # trunc away padded time: (T, C)
-                fin_timeframes_k.append(timeframe_b_k)
-
-            fin_timeframes.append(torch.stack(fin_timeframes_k, dim=0)) # (B, T, C)
-
-        timeframes = torch.stack(fin_timeframes, dim=1) # (B, k, T, C)
-        amps = torch.stack(amps_list, dim=1)           # (B, k, T, C)
+        x = torch.stack(x_list, dim=1)        # (B, k, T, C) each
+        amps = torch.stack(amps_list, dim=1)
         f_off = torch.stack(f_off_list, dim=1)
 
         # MLP
-        x = self.MLP(timeframes)
+        x = self.MLP(x)
 
         '''
         # Attention optional
@@ -152,21 +131,28 @@ class block(nn.Module):
         x = x + x_att
         '''
 
-
+        '''
         # Film
         param = self.MLP_film(f_off)
         x_film = x*param[..., :self.d_embd] + param[..., self.d_embd:]
         xf = x + x_film
+        '''
 
-
+        '''
         # Adaptive Aggregation
         amps = self.MLP(amps)
         weights = F.softmax(amps, dim=1)         # (B, k, T, C) -> softmax across k, importance of freq k at each time/channel
-        x_weighted = xf * weights  # (B, k, T, C)
+        x_weighted = x * weights  # (B, k, T, C)
         x_weighted = x_weighted.sum(dim=1)
         #dx = rearrange(x_weighted, 'b k t c -> b t (k c)')
         #dx = self.agg_MLP(dx)      # (B T k*C) -> (B T C); learn cross-period dependencies
         out = x + x_weighted
+        '''
+
+        # Aggregation original
+        weights = F.softmax(amps_k)
+        weights = rearrange(weights, 'k -> k 1 1')
+        out = x * weights
 
         return out
 
@@ -229,13 +215,14 @@ class block(nn.Module):
     def get_periods(self, x):
         T = x.shape[1]
 
-        x_ft = torch.fft.rfft(x, dim=-2)
-        x_ft = x_ft[:, 1:, :]  # drop row 0 -> const term
-        amps = torch.abs(x_ft)
-        amps = torch.mean(amps, dim=-1)  # avg across channel dim (identify most meaningful periods across channels) -> (B,F)
-        amps_k, freq_bin_k = torch.topk(amps, k=self.k_periods,dim=-1)  # top k_periods amps, frequencies(indices): (B, k) each
-        periods_k = T // (freq_bin_k + 1)  # row 0 = freq 0 sliced out before -> new row 0 refers to freq 1 -> shift freq_k by one
-        return periods_k, freq_bin_k + 1
+        X_f = torch.fft.rfft(x, dim=-2)
+        X_f = X_f[:, 1:, :]  # drop row 0 -> const term
+        amps = torch.abs(X_f)
+        amps = torch.mean(amps, dim=(0,-1))  # avg across B,C
+        amps_k, freq_bin_k = torch.topk(amps, k=self.k_periods)  # top k amps, freq_bins
+        freq_bin_k = freq_bin_k + 1 # row 0 = freq 0 sliced out before -> new row 0 refers to freq 1 -> shift freq_k by one
+        periods_k = T // freq_bin_k
+        return periods_k, freq_bin_k, amps_k
 
 
 class model(nn.Module):
@@ -256,9 +243,9 @@ class model(nn.Module):
             if module.bias is not None:
                 torch.nn.init.zeros_(module.bias)
 
-    def forward(self, input):
+    def forward(self, input, eval=False):
         x = self.embd(input)
-        x = self.blocks(x)
+        x = self.blocks(x, eval)
         pred = self.embd_back(x)  # (B, T, C)
         return pred
 

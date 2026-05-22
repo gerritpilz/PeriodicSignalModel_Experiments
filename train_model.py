@@ -53,7 +53,7 @@ def estimate_loss():
                 break
 
             xb, yb = xb.to('cuda'), yb.to('cuda')
-            pred = model(xb)
+            pred = model(xb, eval=True)
             pred = pred[:, -pred_len:, :]
 
             loss = F.mse_loss(pred, yb)
