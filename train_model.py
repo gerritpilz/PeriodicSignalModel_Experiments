@@ -22,7 +22,7 @@ k_periods = 6
 bw = 1
 
 # Attention
-n_heads = 4
+n_heads = 2
 
 # training
 n_epochs = 4
