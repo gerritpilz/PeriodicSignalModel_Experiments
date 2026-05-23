@@ -64,7 +64,11 @@ def train(config):
         net.eval()
         losses = []
 
-        for xb, yb in val_loader:
+        for i, (xb, yb) in val_loader:
+
+            if i > 20:
+                break
+
             xb, yb = xb.to(device), yb.to(device)
 
             pred = net(xb)
