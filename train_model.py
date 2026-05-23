@@ -64,7 +64,7 @@ def train(config):
         net.eval()
         losses = []
 
-        for i, (xb, yb) in val_loader:
+        for i, (xb, yb) in enumerate(val_loader):
 
             if i > 20:
                 break
