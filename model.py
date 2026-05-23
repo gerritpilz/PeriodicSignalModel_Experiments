@@ -149,7 +149,7 @@ class block(nn.Module):
 
        # x = x * w
        # x = x.sum(1)
-
+        '''
         w_global = F.softmax(amps_k_batch, dim=-1)  # (B,k)
         w_global = w_global.unsqueeze(-1).unsqueeze(-1)
 
@@ -161,15 +161,16 @@ class block(nn.Module):
         weights = w_global * (1 + 0.1 * w_local)
 
         x = (x * weights).sum(1)
-
         '''
+
+
 
         weights = F.softmax(amps_k_batch, dim=-1)  # (B k)
         weights = rearrange(weights, 'b k -> b k 1 1')
 
         x = x * weights
         x = x.sum(1)
-        '''
+
         return x + x_in
 
     def analytic_signal(self, x):
