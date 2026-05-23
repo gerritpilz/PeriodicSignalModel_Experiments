@@ -67,7 +67,7 @@ class block(nn.Module):
         self.times_conv = TimesBlockConv(d_embd)
         self.ln = nn.LayerNorm(d_embd)
         self.attention =  nn.MultiheadAttention(embed_dim=d_embd, num_heads=n_heads, batch_first=True)
-        self.agg_MLP = MLP(d_embd, d_embd, dropout)
+        self.agg_MLP = MLP(k_periods*d_embd, d_embd, dropout)
         self.proj_amp = nn.Linear(d_embd, 1)
 
         self.d_embd = d_embd
@@ -150,6 +150,10 @@ class block(nn.Module):
 
        # x = x * w
        # x = x.sum(1)
+
+        x_mix = rearrange(x, 'b k t c -> b t (k c)')
+        x_mix = self.agg_MLP(x_mix)
+        x = x + x_mix.unsqueeze(1)
 
         w_global = F.softmax(amps_k_batch, dim=-1)  # (B,k)
         w_global = w_global[..., None, None]
