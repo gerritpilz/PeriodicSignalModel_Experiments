@@ -2,6 +2,7 @@
 base_config = {
     # training
     "n_epochs": 4,
+    "eval_iter": 5,
     "lr": 1e-4,
     "lr_min": 2e-5,
     "scheduler_steps": 1000,
@@ -63,7 +64,8 @@ sweep_config = {
         },
 
 
-        "n_epochs": {"value": 2},
+        "n_epochs": {"value": 1},
+        "eval_iter": 25,
         "lr_min": {"value": 2e-5},
         "scheduler_steps": {"value": 1000},
 

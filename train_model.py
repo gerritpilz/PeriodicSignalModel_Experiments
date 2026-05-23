@@ -95,6 +95,9 @@ def train(config):
             optimizer.step()
             scheduler.step()
 
+            if it > 300:  # for sweep
+                break
+
             if it % config.eval_iter == 0:
                 val_loss = estimate_loss()
                 best_val = min(best_val, val_loss)
