@@ -60,20 +60,23 @@ class TimesBlockConv(nn.Module):
 
 
 class block(nn.Module):
-    def __init__(self, seq_len, d_embd, dropout, k_periods, bw, n_heads):
+    def __init__(self, device, seq_len, d_embd, dropout, k_periods, sigma):
         super().__init__()
         self.MLP = MLP(d_embd, d_embd,dropout)
         self.MLP_film = MLP_film(d_embd, dropout)
         self.times_conv = TimesBlockConv(d_embd)
         self.ln = nn.LayerNorm(d_embd)
-        self.attention =  nn.MultiheadAttention(embed_dim=d_embd, num_heads=n_heads, batch_first=True)
         self.agg_MLP = MLP(k_periods*d_embd, d_embd, dropout)
         self.proj_amp = nn.Linear(d_embd, 1)
 
         self.d_embd = d_embd
         self.seq_len = seq_len
         self.k_periods = k_periods
-        self.bw = bw
+        self.sigma = sigma
+
+        # frequency vector
+        freq_bins = torch.arange(seq_len // 2 + 1)
+        self.register_buffer("freq_bins", freq_bins)
 
         # hilbert filter
         H = torch.zeros(seq_len)
@@ -82,7 +85,7 @@ class block(nn.Module):
         H[seq_len // 2] = 1
         self.register_buffer("hilbert_filter", H)
 
-    def forward(self, x, eval=False):
+    def forward(self, x):
         B,T,C = x.shape
         x_in = x
 
@@ -93,12 +96,12 @@ class block(nn.Module):
         amps_list=[]
         for k in range(self.k_periods):
             # Instant amp and freq
-            amp = self.bandpass(x, freq_bins[k])  # (B, T, C) each
+            amp = self.compute_band_amplitude(x, freq_bins[k])  # (B, T, C) each
             amps_list.append(amp)  # append amp_t tensor to collect all k
 
             # pad dims for 2D
             pad = (-T) % periods[k]     # pad for 1D time of period k
-            n = periods[k]         # num columns of 2D timeframe of period k
+            n = periods[k]              # num columns of 2D timeframe of period k
 
             # 2D reshape
             x_k = F.pad(x,(0, 0, 0, pad))  # (B T+pad C)
@@ -118,24 +121,7 @@ class block(nn.Module):
         # MLP
         x = self.MLP(x)
 
-
-        # Attention optional
-        B = x.shape[0]
-        x_att = self.ln(x)
-        x_att = rearrange(x_att, 'b k t c -> (b k) t c')
-        x_att, _ = self.attention(x_att, x_att, x_att)
-        x_att = rearrange(x_att, '(b k) t c -> b k t c', b=B)
-        x = x + x_att
-
-
-        '''
-        
-        # cross freq mlp
-        x_mix = rearrange(x, 'b k t c -> b t (k c)')
-        x_mix = self.agg_MLP(x_mix)
-        x = x + x_mix.unsqueeze(1)
-        '''
-
+        # Adaptive Aggregation
         w_global = F.softmax(amps_k_batch, dim=-1)  # (B,k)
         w_global = w_global[..., None, None]
 
@@ -144,10 +130,10 @@ class block(nn.Module):
         w_local = torch.tanh(w_local)
 
         weights = w_global * (1 + 0.1 * w_local)
-
         x = (x * weights).sum(1)
 
-        ''' Standard
+        ''' 
+        # Original
         weights = F.softmax(amps_k_batch, dim=-1)  # (B k)
         weights = rearrange(weights, 'b k -> b k 1 1')
 
@@ -156,41 +142,6 @@ class block(nn.Module):
         '''
 
         return x + x_in
-
-    def analytic_signal(self, x):
-        H = self.hilbert_filter
-        H = rearrange(H, 't -> t 1')
-        Xf = torch.fft.fft(x, dim=-2)
-        Zf = Xf * H
-        z = torch.fft.ifft(Zf, dim=-2)
-        return z
-
-    def Hf_bandpass(self, f0_bin):
-        f_bin = torch.arange(self.seq_len//2 + 1, device='cuda') # freq bin vector
-        H = (torch.abs(f_bin - f0_bin) <= self.bw).float()  # (F)
-        return H
-
-
-    def gaussian_bandpass(self, f0_bin, sigma=0.5): #sigma 1 optimal
-        f_bin = torch.arange(self.seq_len // 2 + 1, device='cuda')  # freq bin vector
-        d = torch.abs(f_bin - f0_bin)
-        H = torch.exp(-(d ** 2) / (2 * sigma ** 2)) # (F)
-        return H
-
-    def bandpass(self, x, f0_bin):
-
-        Xf = torch.fft.rfft(x, dim=-2) # (B F C)
-        Hf = self.gaussian_bandpass(f0_bin) # (B F)  #!!!!!!!!!!!!!!!!!!!!!!!!!!! sigma umstellen
-        Hf = rearrange(Hf, 'f -> f 1')
-        Xf_filt = Hf*Xf
-        x_filt = torch.fft.irfft(Xf_filt, dim=-2) # (B T C)
-
-        # hilbert transform the filtered x
-        z = self.analytic_signal(x_filt) # (B T C)
-
-        amp_t = torch.abs(z)
-        return amp_t             # (B T C)
-
 
     def get_periods(self, x):
         T = x.shape[1]
@@ -210,19 +161,44 @@ class block(nn.Module):
 
         return periods_k, freq_bin_k, amps_k_batch
 
+    def compute_band_amplitude(self, x, f0_bin):
+
+        Xf = torch.fft.rfft(x, dim=-2) # (B F C)
+        Hf = self.gaussian_bandpass(f0_bin) # (B F)
+        Hf = rearrange(Hf, 'f -> f 1')
+        Xf_filt = Hf*Xf
+        x_filt = torch.fft.irfft(Xf_filt, dim=-2) # (B T C)
+
+        # hilbert transform the filtered x
+        z = self.analytic_signal(x_filt) # (B T C)
+
+        amp_t = torch.abs(z)
+        return amp_t             # (B T C)
+
+    def gaussian_bandpass(self, f0_bin):
+        d = torch.abs(self.freq_bins - f0_bin)
+        H = torch.exp(-(d ** 2) / (2 * self.sigma ** 2)) # (F)
+        return H
+
+    def analytic_signal(self, x):
+        H = self.hilbert_filter
+        H = rearrange(H, 't -> t 1')
+        Xf = torch.fft.fft(x, dim=-2)
+        Zf = Xf * H
+        z = torch.fft.ifft(Zf, dim=-2)
+        return z
 
 class model(nn.Module):
-    def __init__(self, n_channels, seq_len, d_embd, dropout, n_timeBlocks, k_periods, bw, n_heads):
+    def __init__(self,n_channels, seq_len, d_embd, dropout, n_timeBlocks, k_periods, sigma):
         super().__init__()
-
-        self.embd = nn.Linear(n_channels, d_embd)
-        self.ln = nn.LayerNorm(d_embd)
-        self.blocks = nn.Sequential(*[block(seq_len, d_embd, dropout, k_periods, bw, n_heads) for _ in range(n_timeBlocks)])
-        self.embd_back = nn.Linear(d_embd, n_channels)
+        self.apply(self.init_weights)
 
         self.seq_len = seq_len
 
-        self.apply(self.init_weights)
+        self.embd = nn.Linear(n_channels, d_embd)
+        self.ln = nn.LayerNorm(d_embd)
+        self.blocks = nn.Sequential(*[block(seq_len, d_embd, dropout, k_periods, sigma) for _ in range(n_timeBlocks)])
+        self.embd_back = nn.Linear(d_embd, n_channels)
 
     def init_weights(self, module):
         if isinstance(module, nn.Linear):
@@ -230,8 +206,8 @@ class model(nn.Module):
             if module.bias is not None:
                 torch.nn.init.zeros_(module.bias)
 
-    def forward(self, input, eval=False):
-        x = self.embd(input)
+    def forward(self, x):
+        x = self.embd(x)
         x = self.ln(x)
         x = self.blocks(x)
         pred = self.embd_back(x)  # (B, T, C)
@@ -249,7 +225,7 @@ class model(nn.Module):
             pred_next = pred[:, [-1], :]  # (B, 1, C)
 
             # append pred_t to running sequence
-            context = torch.concat([context, pred_next], dim=1)
+            context = torch.cat([context, pred_next], dim=1)
 
         return context
 

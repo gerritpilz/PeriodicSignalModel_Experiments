@@ -5,9 +5,14 @@ from torch.utils.data import Dataset, DataLoader
 import matplotlib.pyplot as plt
 from model import model
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# training
+n_epochs = 4
+eval_iter = 5
 
 # hyperparameters
-n_channels = 10
+n_channels = 10  # channels from dataset
 seq_len = 128
 pred_len = 32
 batch_size = 16
@@ -18,20 +23,13 @@ dropout = 0.2
 n_timeBlocks = 8
 k_periods = 6
 
-# filter
-bw = 1
-
-# Attention
-n_heads = 2
-
-# training
-n_epochs = 4
-eval_iter = 5
+# gaussian bandpass filter
+sigma = 0.5
 
 
-class weatherDataset(Dataset):
+class TimeSeriesDataset(Dataset):
     def __init__(self, data, seq_len, pred_len):
-        self.X = torch.tensor(data, dtype=torch.float32)
+        self.X = data
         self.seq_len = seq_len
         self.pred_len = pred_len
 
@@ -49,12 +47,12 @@ def estimate_loss():
     model.eval()
     out = {}
     for split, loader in [('train', train_loader), ('val', val_loader)]:
-        losses = torch.zeros(eval_iter, device='cuda')
+        losses = torch.zeros(eval_iter, device=device)
         for it, (xb, yb) in enumerate(loader):
             if it == eval_iter:
                 break
 
-            xb, yb = xb.to('cuda'), yb.to('cuda')
+            xb, yb = xb.to(device), yb.to(device)
             pred = model(xb)
             pred = pred[:, -pred_len:, :]
 
@@ -64,27 +62,25 @@ def estimate_loss():
     model.train()
     return out
 
-# read file
-file = pd.read_csv('weather_prediction_dataset.csv', usecols=range(104, 114)) #  munich weather data
+# read files
+train_file = pd.read_csv('machine-1-1_train.txt', header=None, nrows=20000)
+val_file = pd.read_csv('machine-1-1_val.txt', header=None, nrows=20000)
 
-# Train and test splits
-data = torch.tensor(file.values, dtype=torch.float32)  # (T, C)
-n = int(0.9*data.shape[0])
-train_data = data[:n]
-val_data = data[n:]
+train_data = torch.tensor(train_file.values, dtype=torch.float32)
+val_data = torch.tensor(val_file.values, dtype=torch.float32)
 
-print(data.std())
+print(train_data.std())
 
 
 # Dataset, Dataloader
-train_dataset = weatherDataset(train_data, seq_len, pred_len)
-val_dataset = weatherDataset(val_data, seq_len, pred_len)
+train_dataset = TimeSeriesDataset(train_data, seq_len, pred_len)
+val_dataset = TimeSeriesDataset(val_data, seq_len, pred_len)
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)  
 val_loader = DataLoader(val_dataset, batch_size=batch_size)
 
 # create model
-model = model(n_channels, seq_len, d_embd, dropout, n_timeBlocks, k_periods, bw, n_heads)
-model = model.to('cuda')
+model = model(n_channels, seq_len, d_embd, dropout, n_timeBlocks, k_periods, sigma)
+model = model.to(device)
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=800, eta_min=2e-5)
@@ -93,7 +89,7 @@ scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=800, eta
 model.train()
 for epoch in range(n_epochs):
     for it, (xb, yb) in enumerate(train_loader):
-        xb, yb = xb.to('cuda'), yb.to('cuda')
+        xb, yb = xb.to(device), yb.to(device)
         pred = model(xb)
         pred = pred[:, -pred_len:, :]
         loss = F.mse_loss(pred, yb)
@@ -112,7 +108,7 @@ for epoch in range(n_epochs):
                 # here: take first frequency
                 periods, freq_bins, _ = model.blocks[0].get_periods(x_sample)
 
-                amps = model.blocks[0].bandpass(x_sample, freq_bins[0])
+                amps = model.blocks[0].compute_band_amplitude(x_sample, freq_bins[0])
 
                 plt.figure(figsize=(8, 4))
                 plt.plot(x_sample[0, :, 0].detach().cpu(), label="original")
