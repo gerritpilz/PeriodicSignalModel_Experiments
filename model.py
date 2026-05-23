@@ -143,12 +143,25 @@ class block(nn.Module):
         #weights = F.softmax(amps_k_batch, dim=-1)   # (B k)
         #weights = rearrange(weights, 'b k -> b k 1 1')
 
-        w = torch.mean(amps, dim=-1) # ( B k T)
-        w = rearrange(w, 'b k t-> b k t 1')
-        w = F.softmax(w, dim=1)
+        #w = torch.mean(amps, dim=-1) # ( B k T)
+        #w = rearrange(w, 'b k t-> b k t 1')
+       # w = F.softmax(w, dim=1)
 
-        x = x * w
-        x = x.sum(1)
+       # x = x * w
+       # x = x.sum(1)
+
+        w_global = F.softmax(amps_k_batch, dim=-1)  # (B,k)
+        w_global = w_global.unsqueeze(-1).unsqueeze(-1)
+
+        w_local = amps.mean(dim=-1)  # (B,k,T)
+        w_local = w_local / (w_local.mean(dim=1, keepdim=True) + 1e-5)
+        w_local = torch.tanh(w_local)
+        w_local = w_local.unsqueeze(-1)  # (B,k,T,1)
+
+        weights = w_global * (1 + 0.1 * w_local)
+
+        x = (x * weights).sum(1)
+
         '''
 
         weights = F.softmax(amps_k_batch, dim=-1)  # (B k)
@@ -173,7 +186,7 @@ class block(nn.Module):
         return H
 
 
-    def gaussian_bandpass(self, f0_bin, sigma=0.2): #sigma 1 optimal
+    def gaussian_bandpass(self, f0_bin, sigma=0.5): #sigma 1 optimal
         f_bin = torch.arange(self.seq_len // 2 + 1, device='cuda')  # freq bin vector
         d = torch.abs(f_bin - f0_bin)
         H = torch.exp(-(d ** 2) / (2 * sigma ** 2)) # (F)
