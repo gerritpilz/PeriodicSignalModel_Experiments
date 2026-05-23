@@ -158,7 +158,7 @@ class block(nn.Module):
         w_local = w_local / (w_local.mean(dim=1, keepdim=True) + 1e-5) - 1
         #w_local = torch.tanh(w_local)
 
-        weights = w_global * (1 + 0 * w_local)
+        weights = w_global * (1 + 0.1 * w_local)
 
         x = (x * weights).sum(1)
 
