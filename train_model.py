@@ -66,7 +66,7 @@ def train(config):
 
         for i, (xb, yb) in enumerate(val_loader):
 
-            if i > 20:
+            if i > 20:   # for sweep
                 break
 
             xb, yb = xb.to(device), yb.to(device)
@@ -97,9 +97,9 @@ def train(config):
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
             optimizer.step()
-            scheduler.step()
+            #scheduler.step()
 
-            if it > 300:  # for sweep
+            if it > 200:  # for sweep
                 break
 
             if it % config.eval_iter == 0:

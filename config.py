@@ -36,27 +36,24 @@ sweep_config = {
     "parameters": {
 
         "lr": {
-            "values": [5e-5, 1e-4, 2e-4]
+            "values": [5e-5, 1e-4]
         },
 
         "d_embd": {
-            "values": [64, 128, 256]
+            "values": [128, 256]
         },
 
-        "dropout": {
-            "values": [0.1, 0.2, 0.3]
-        },
 
         "n_timeBlocks": {
-            "values": [6, 8, 12]
+            "values": [6, 8]
         },
 
         "k_periods": {
-            "values": [4, 6, 8]
+            "values": [6, 8]
         },
 
         "sigma": {
-            "values": [0.3, 0.5, 0.7]
+            "values": [0.4, 0.5, 0.6]
         },
 
         "alpha": {
@@ -65,10 +62,11 @@ sweep_config = {
 
 
         "n_epochs": {"value": 1},
-        "eval_iter": {"value": 50},
+        "eval_iter": {"value": 100},
         "lr_min": {"value": 2e-5},
-        "scheduler_steps": {"value": 1000},
+        "scheduler_steps": {"value": 300},
 
+        "dropout": {"value": 0.2},
         "n_channels": {"value": 30},
         "seq_len": {"value": 128},
         "pred_len": {"value": 32},
