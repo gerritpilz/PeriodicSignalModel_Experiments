@@ -115,7 +115,14 @@ def sweep_train():
     run = wandb.init()
     config = wandb.config
     val_loss = train(config)
-    wandb.log({"val_loss": val_loss})
+    wandb.log({"val_loss": val_loss,
+               "lr": config.lr,
+               "n_timeBlocks": config.n_timeBlocks,
+               "d_embd": config.d_embd,
+               "k_periods": config.k_periods,
+               "sigma": config.sigma,
+               "alpha": config.alpha,
+               })
 
 if __name__ == "__main__":
     sweep_id = wandb.sweep(sweep_config, project="PeriodicSignalModel")
