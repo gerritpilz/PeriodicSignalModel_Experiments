@@ -68,6 +68,7 @@ class block(nn.Module):
         self.ln = nn.LayerNorm(d_embd)
         self.attention =  nn.MultiheadAttention(embed_dim=d_embd, num_heads=n_heads, batch_first=True)
         self.agg_MLP = MLP(d_embd*k_periods, d_embd, dropout)
+        self.proj_amp = nn.Linear(d_embd, 1)
 
         self.d_embd = d_embd
         self.seq_len = seq_len
@@ -149,11 +150,11 @@ class block(nn.Module):
 
        # x = x * w
        # x = x.sum(1)
-        '''
-        w_global = F.softmax(amps_k_batch, dim=-1)  # (B,k)
-        w_global = w_global.unsqueeze(-1).unsqueeze(-1)
 
-        w_local = amps.mean(dim=-1)  # (B,k,T)
+        w_global = F.softmax(amps_k_batch, dim=-1)  # (B,k)
+        w_global = w_global[..., None, None]
+
+        w_local = self.proj_amp(amps)  # (B,k,T)
         w_local = w_local / (w_local.mean(dim=1, keepdim=True) + 1e-5)
         w_local = torch.tanh(w_local)
         w_local = w_local.unsqueeze(-1)  # (B,k,T,1)
@@ -161,15 +162,16 @@ class block(nn.Module):
         weights = w_global * (1 + 0.1 * w_local)
 
         x = (x * weights).sum(1)
+
+
+
         '''
-
-
-
         weights = F.softmax(amps_k_batch, dim=-1)  # (B k)
         weights = rearrange(weights, 'b k -> b k 1 1')
 
         x = x * weights
         x = x.sum(1)
+        '''
 
         return x + x_in
 
