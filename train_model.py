@@ -73,14 +73,6 @@ n = int(0.9*data.shape[0])
 train_data = data[:n]
 val_data = data[n:]
 
-'''
-# Normalize data
-mean = train_data.mean(dim=0)
-std = train_data.std(dim=0)
-train_data = (train_data) / std
-val_data = (val_data) / std
-'''
-
 
 # Dataset, Dataloader
 train_dataset = weatherDataset(train_data, seq_len, pred_len)
@@ -93,6 +85,7 @@ model = model(n_channels, seq_len, d_embd, dropout, n_timeBlocks, k_periods, bw,
 model = model.to('cuda')
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
+scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=800, eta_min=2e-5)
 
 # training loop
 model.train()
@@ -105,6 +98,7 @@ for epoch in range(n_epochs):
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
         optimizer.step()
+        scheduler.step()
 
         if it % eval_iter == 0:
             losses = estimate_loss()
