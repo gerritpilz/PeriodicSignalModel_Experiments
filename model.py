@@ -90,12 +90,10 @@ class block(nn.Module):
 
         x_list=[]
         amps_list=[]
-        f_off_list=[]
         for k in range(self.k_periods):
             # Instant amp and freq
-            amp, f_off = self.bandpass(x, freq_bins[k])  # (B, T, C) each
+            amp = self.bandpass(x, freq_bins[k])  # (B, T, C) each
             amps_list.append(amp)  # append amp_t tensor to collect all k
-            f_off_list.append(f_off)
 
             # pad dims for 2D
             pad = (-T) % periods[k]     # pad for 1D time of period k
@@ -115,7 +113,6 @@ class block(nn.Module):
 
         x = torch.stack(x_list, dim=1)        # (B, k, T, C) each
         amps = torch.stack(amps_list, dim=1)
-        f_off = torch.stack(f_off_list, dim=1)
 
         # MLP
         x = self.MLP(x)
@@ -129,14 +126,6 @@ class block(nn.Module):
         x_att = rearrange(x_att, '(b k) t c -> b k t c', b=B)
         x = x + x_att
         '''
-
-        '''
-        # Film
-        param = self.MLP_film(f_off)
-        x_film = x*param[..., :self.d_embd] + param[..., self.d_embd:]
-        x = x + x_film
-        '''
-
 
         '''
         #Adaptive Aggregation
@@ -186,28 +175,16 @@ class block(nn.Module):
         return H
 
 
-    def gaussian_bandpass(self, f0_bin, sigma=1): #sigma 1 optimal
+    def gaussian_bandpass(self, f0_bin, sigma=0.5): #sigma 1 optimal
         f_bin = torch.arange(self.seq_len // 2 + 1, device='cuda')  # freq bin vector
         d = torch.abs(f_bin - f0_bin)
         H = torch.exp(-(d ** 2) / (2 * sigma ** 2)) # (F)
         return H
 
-    def unwrap(self, phase, dim):
-        dphi = torch.diff(phase, dim=dim)
-
-        # bring into [-pi, pi]
-        dphi = (dphi + torch.pi) % (2 * torch.pi) - torch.pi
-
-        phase_unwrapped = torch.cumsum(
-            torch.cat([phase.narrow(dim, 0, 1), dphi], dim=dim),
-            dim=dim
-        )
-        return phase_unwrapped
-
     def bandpass(self, x, f0_bin):
 
         Xf = torch.fft.rfft(x, dim=-2) # (B F C)
-        Hf = self.Hf_bandpass(f0_bin) # (B F)  #!!!!!!!!!!!!!!!!!!!!!!!!!!! sigma umstellen
+        Hf = self.gaussian_bandpass(f0_bin) # (B F)  #!!!!!!!!!!!!!!!!!!!!!!!!!!! sigma umstellen
         Hf = rearrange(Hf, 'f -> f 1')
         Xf_filt = Hf*Xf
         x_filt = torch.fft.irfft(Xf_filt, dim=-2) # (B T C)
@@ -216,14 +193,7 @@ class block(nn.Module):
         z = self.analytic_signal(x_filt) # (B T C)
 
         amp_t = torch.abs(z)
-
-        phase_t = self.unwrap(torch.angle(z), dim=-2)  # angle returns [-pi, pi] -> unwrap
-        freq_t = torch.diff(phase_t, dim=-2) / (2.0 * torch.pi)  # (B T C)
-        freq_t = F.pad(freq_t, (0, 0, 0, 1))  # add lost time step
-        f0 = f0_bin/self.seq_len
-        freq_offset = f0 - freq_t
-
-        return amp_t, freq_offset # both (B T C)
+        return amp_t             # (B T C)
 
 
     def get_periods(self, x):
