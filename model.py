@@ -67,7 +67,7 @@ class block(nn.Module):
         self.times_conv = TimesBlockConv(d_embd)
         self.ln = nn.LayerNorm(d_embd)
         self.attention =  nn.MultiheadAttention(embed_dim=d_embd, num_heads=n_heads, batch_first=True)
-        self.agg_MLP = MLP(d_embd*k_periods, d_embd, dropout)
+        self.agg_MLP = MLP(d_embd, d_embd, dropout)
         self.proj_amp = nn.Linear(d_embd, 1)
 
         self.d_embd = d_embd
@@ -157,10 +157,12 @@ class block(nn.Module):
         w_local = self.proj_amp(amps)  # (B,k,T)
         w_local = w_local / (w_local.mean(dim=1, keepdim=True) + 1e-5)
         w_local = torch.tanh(w_local)
+        w_local = F.softmax(w_local / 2.0, dim=1)
 
         weights = w_global * (1 + 0.1 * w_local)
 
         x = (x * weights).sum(1)
+        x = self.agg_MLP(x)
 
 
 
