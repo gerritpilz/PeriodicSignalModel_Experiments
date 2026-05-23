@@ -12,7 +12,7 @@ n_epochs = 4
 eval_iter = 5
 
 # hyperparameters
-n_channels = 38  # channels from dataset
+n_channels = 30  # channels from dataset
 seq_len = 128
 pred_len = 32
 batch_size = 16
