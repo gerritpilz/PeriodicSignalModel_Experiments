@@ -118,7 +118,7 @@ class block(nn.Module):
         # MLP
         x = self.MLP(x)
 
-        '''
+
         # Attention optional
         B = x.shape[0]
         x_att = self.ln(x)
@@ -126,34 +126,15 @@ class block(nn.Module):
         x_att, _ = self.attention(x_att, x_att, x_att)
         x_att = rearrange(x_att, '(b k) t c -> b k t c', b=B)
         x = x + x_att
+
+
         '''
-
-        '''
-        #Adaptive Aggregation
-        amps = self.MLP(amps)
-        weights = F.softmax(amps, dim=1)         # (B, k, T, C) -> softmax across k, importance of freq k at each time/channel
-        x_weighted = x * weights  # (B, k, T, C)
-        x_weighted = x_weighted.sum(dim=1)
-        #dx = rearrange(x_weighted, 'b k t c -> b t (k c)')
-        #dx = self.agg_MLP(dx)      # (B T k*C) -> (B T C); learn cross-period dependencies
-        out = x_weighted
-        '''
-
-
-        # Aggregation original
-        #weights = F.softmax(amps_k_batch, dim=-1)   # (B k)
-        #weights = rearrange(weights, 'b k -> b k 1 1')
-
-        #w = torch.mean(amps, dim=-1) # ( B k T)
-        #w = rearrange(w, 'b k t-> b k t 1')
-       # w = F.softmax(w, dim=1)
-
-       # x = x * w
-       # x = x.sum(1)
-
+        
+        # cross freq mlp
         x_mix = rearrange(x, 'b k t c -> b t (k c)')
         x_mix = self.agg_MLP(x_mix)
         x = x + x_mix.unsqueeze(1)
+        '''
 
         w_global = F.softmax(amps_k_batch, dim=-1)  # (B,k)
         w_global = w_global[..., None, None]
@@ -166,7 +147,7 @@ class block(nn.Module):
 
         x = (x * weights).sum(1)
 
-        '''
+        ''' Standard
         weights = F.softmax(amps_k_batch, dim=-1)  # (B k)
         weights = rearrange(weights, 'b k -> b k 1 1')
 
