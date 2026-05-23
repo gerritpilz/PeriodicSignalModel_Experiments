@@ -60,7 +60,7 @@ class TimesBlockConv(nn.Module):
 
 
 class block(nn.Module):
-    def __init__(self, seq_len, d_embd, dropout, k_periods, sigma):
+    def __init__(self, seq_len, d_embd, dropout, k_periods, sigma, alpha):
         super().__init__()
         self.MLP = MLP(d_embd, d_embd,dropout)
         self.MLP_film = MLP_film(d_embd, dropout)
@@ -72,7 +72,9 @@ class block(nn.Module):
         self.d_embd = d_embd
         self.seq_len = seq_len
         self.k_periods = k_periods
+
         self.sigma = sigma
+        self.alpha = alpha
 
         # frequency vector
         freq_bins = torch.arange(seq_len // 2 + 1)
@@ -129,7 +131,7 @@ class block(nn.Module):
         w_local = w_local / (w_local.mean(dim=1, keepdim=True) + 1e-5)
         w_local = torch.tanh(w_local)
 
-        weights = w_global * (1 + 0.1 * w_local)
+        weights = w_global * (1 + self.alpha * w_local)
         x = (x * weights).sum(1)
 
         ''' 
@@ -189,7 +191,7 @@ class block(nn.Module):
         return z
 
 class model(nn.Module):
-    def __init__(self,n_channels, seq_len, d_embd, dropout, n_timeBlocks, k_periods, sigma):
+    def __init__(self,n_channels, seq_len, d_embd, dropout, n_timeBlocks, k_periods, sigma, alpha):
         super().__init__()
         self.apply(self.init_weights)
 
@@ -197,7 +199,7 @@ class model(nn.Module):
 
         self.embd = nn.Linear(n_channels, d_embd)
         self.ln = nn.LayerNorm(d_embd)
-        self.blocks = nn.Sequential(*[block(seq_len, d_embd, dropout, k_periods, sigma) for _ in range(n_timeBlocks)])
+        self.blocks = nn.Sequential(*[block(seq_len, d_embd, dropout, k_periods, sigma, alpha) for _ in range(n_timeBlocks)])
         self.embd_back = nn.Linear(d_embd, n_channels)
 
     def init_weights(self, module):
