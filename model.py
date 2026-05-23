@@ -173,7 +173,7 @@ class block(nn.Module):
         return H
 
 
-    def gaussian_bandpass(self, f0_bin, sigma=0.5): #sigma 1 optimal
+    def gaussian_bandpass(self, f0_bin, sigma=0.2): #sigma 1 optimal
         f_bin = torch.arange(self.seq_len // 2 + 1, device='cuda')  # freq bin vector
         d = torch.abs(f_bin - f0_bin)
         H = torch.exp(-(d ** 2) / (2 * sigma ** 2)) # (F)
