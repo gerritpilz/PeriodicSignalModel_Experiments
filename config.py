@@ -65,7 +65,7 @@ sweep_config = {
 
 
         "n_epochs": {"value": 1},
-        "eval_iter": 25,
+        "eval_iter": {"value": 50},
         "lr_min": {"value": 2e-5},
         "scheduler_steps": {"value": 1000},
 
