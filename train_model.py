@@ -73,6 +73,8 @@ n = int(0.9*data.shape[0])
 train_data = data[:n]
 val_data = data[n:]
 
+print(data.std)
+
 
 # Dataset, Dataloader
 train_dataset = weatherDataset(train_data, seq_len, pred_len)
