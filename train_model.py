@@ -107,6 +107,8 @@ def train(train_path, val_path):
             loss.backward()
             optimizer.step()
             scheduler.step()
+            if it > 150:
+                break
 
             if it % eval_iter == 0:
                 losses = estimate_loss()
