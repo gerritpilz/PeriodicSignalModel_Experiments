@@ -215,19 +215,4 @@ class model(nn.Module):
         pred = self.embd_back(x)  # (B, T, C)
         return pred
 
-    def generate(self, context, max_new_pred):   #  context: (B, T_context, C)
-        for _ in range(max_new_pred):
-            # crop idx to last seq_len embeddings
-            context_cond = context[:, -self.seq_len:, :]
-
-            # get predictions
-            pred, loss = self(context_cond)
-
-            # only last time step
-            pred_next = pred[:, [-1], :]  # (B, 1, C)
-
-            # append pred_t to running sequence
-            context = torch.cat([context, pred_next], dim=1)
-
-        return context
 
