@@ -110,7 +110,8 @@ def train(config):
     return best_val
 
 
-
+if __name__ == "__main__":
+    train(base_config)
 
 
 
