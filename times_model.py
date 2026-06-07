@@ -16,20 +16,6 @@ class MLP(nn.Module):
      def forward(self, x):
           return self.net(x)
 
-class MLP_film(nn.Module):
-    def __init__(self, d_in, dropout):
-        super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(d_in, 2*d_in),
-            nn.GELU(),
-            nn.Linear(2*d_in, 2*d_in),
-            nn.Dropout(dropout)
-        )
-
-    def forward(self, x):
-        return self.net(x)
-
-
 class TimesBlockConv(nn.Module):
     def __init__(self, d_model):
         super().__init__()
@@ -63,7 +49,6 @@ class block(nn.Module):
     def __init__(self, seq_len, d_embd, dropout, k_periods, sigma, alpha):
         super().__init__()
         self.MLP = MLP(d_embd, d_embd,dropout)
-        self.MLP_film = MLP_film(d_embd, dropout)
         self.times_conv = TimesBlockConv(d_embd)
         self.ln = nn.LayerNorm(d_embd)
         self.agg_MLP = MLP(k_periods*d_embd, d_embd, dropout)
@@ -190,7 +175,7 @@ class block(nn.Module):
         z = torch.fft.ifft(Zf, dim=-2)
         return z
 
-class model(nn.Module):
+class times_model(nn.Module):
     def __init__(self,n_channels, seq_len, d_embd, dropout, n_timeBlocks, k_periods, sigma, alpha):
         super().__init__()
         self.apply(self.init_weights)

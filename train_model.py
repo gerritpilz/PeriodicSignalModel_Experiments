@@ -3,26 +3,37 @@ from torch.nn import functional as F
 import pandas as pd
 import argparse
 from torch.utils.data import Dataset, DataLoader
-from times_model import model
+from times_model import times_model
+import os
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # --- Hyperparameters ---
-n_channels      = 38
-seq_len         = 100
-pred_len        = 50
-d_embd          = 64
-dropout         = 0.1
-n_timeBlocks    = 3
-k_periods       = 3
-sigma           = 0.5
-alpha           = 0.5
-lr              = 1e-3
-lr_min          = 1e-5
-scheduler_steps = 100
-batch_size      = 32
-n_epochs        = 100
-eval_iter       = 10
+
+# training
+n_epochs = 4
+eval_iter = 5
+lr = 1e-4
+lr_min = 2e-5
+scheduler_steps = 1000
+
+# hyperparameters
+n_channels = 30
+seq_len = 128
+pred_len = 32
+batch_size = 16
+d_embd = 128
+dropout = 0.2
+
+# model
+n_timeBlocks = 8
+k_periods = 6
+
+# gaussian bandpass filter
+sigma = 0.5
+
+# weighting of instant amplitudes in aggregation
+alpha= 0.1
 # -----------------------
 
 class TimeSeriesDataset(Dataset):
@@ -52,7 +63,7 @@ def train(train_path, val_path):
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader   = DataLoader(val_dataset,   batch_size=batch_size)
 
-    net = model(
+    net = times_model(
         n_channels,
         seq_len,
         d_embd,
@@ -100,6 +111,25 @@ def train(train_path, val_path):
             if it % eval_iter == 0:
                 losses = estimate_loss()
                 print(f"epoch {epoch} step {it}: train loss {losses['train']:.4f} | val loss {losses['val']:.4f}")
+
+    save_model(net)
+
+def save_model(net, path='/content/drive/MyDrive/checkpoints/times_model.pt'):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    torch.save({
+        'model_state': net.state_dict(),
+        'model_config': {
+            'n_channels':   n_channels,
+            'seq_len':      seq_len,
+            'pred_len':     pred_len,
+            'd_embd':       d_embd,
+            'dropout':      dropout,
+            'n_timeBlocks': n_timeBlocks,
+            'k_periods':    k_periods,
+            'sigma':        sigma,
+            'alpha':        alpha
+        }
+    }, path)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
