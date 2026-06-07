@@ -4,6 +4,7 @@ import pandas as pd
 from torch.utils.data import Dataset, DataLoader
 from times_model import times_model
 from config import base_config
+from types import SimpleNamespace
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -111,7 +112,7 @@ def train(config):
 
 
 if __name__ == "__main__":
-    train(base_config)
+    train(SimpleNamespace(**base_config))
 
 
 
