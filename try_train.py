@@ -3,6 +3,7 @@ from torch.nn import functional as F
 import pandas as pd
 from torch.utils.data import Dataset, DataLoader
 from times_model import times_model
+from benchmark_model import model
 from config import base_config
 from types import SimpleNamespace
 
@@ -38,7 +39,7 @@ def train(config):
     val_loader   = DataLoader(val_dataset,   batch_size=config.batch_size)
 
     # Model
-    net = times_model(
+    net = model(
         config.n_channels,
         config.seq_len,
         config.d_embd,
