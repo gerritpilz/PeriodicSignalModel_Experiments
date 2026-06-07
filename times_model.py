@@ -59,7 +59,9 @@ class block(nn.Module):
         self.k_periods = k_periods
 
         self.sigma = sigma
-        self.alpha = alpha
+        #self.alpha = alpha
+
+        self.alpha = nn.Parameter(torch.tensor([0.15]))
 
         # frequency vector
         freq_bins = torch.arange(seq_len // 2 + 1)

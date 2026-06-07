@@ -39,7 +39,7 @@ def train(config):
     val_loader   = DataLoader(val_dataset,   batch_size=config.batch_size)
 
     # Model
-    net = model(
+    net = times_model(
         config.n_channels,
         config.seq_len,
         config.d_embd,
