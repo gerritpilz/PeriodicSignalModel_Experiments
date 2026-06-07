@@ -1,0 +1,204 @@
+import torch
+import torch.nn as nn
+from torch.nn import functional as F
+from einops import rearrange
+
+class MLP(nn.Module):
+     def __init__(self, d_in, d_out, dropout):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(d_in, 2 * d_out),
+            nn.GELU(),
+            nn.Linear(2 * d_out, d_out),
+            nn.Dropout(dropout)
+         )
+
+     def forward(self, x):
+          return self.net(x)
+
+class MLP_film(nn.Module):
+    def __init__(self, d_in, dropout):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(d_in, 2*d_in),
+            nn.GELU(),
+            nn.Linear(2*d_in, 2*d_in),
+            nn.Dropout(dropout)
+        )
+
+    def forward(self, x):
+        return self.net(x)
+
+
+class TimesBlockConv(nn.Module):
+    def __init__(self, d_model):
+        super().__init__()
+
+        self.conv_list = nn.ModuleList([
+            nn.Conv2d(d_model, d_model, kernel_size=1, padding=0),
+            nn.Conv2d(d_model, d_model, kernel_size=3, padding=1),
+            nn.Conv2d(d_model, d_model, kernel_size=5, padding=2),
+            nn.Conv2d(d_model, d_model, kernel_size=7, padding=3),
+        ])
+        self.proj = nn.Conv2d(len(self.conv_list) * d_model, d_model, kernel_size=1)
+
+        self.activation = nn.GELU()
+
+    def forward(self, x):
+        x = x.permute(0, 3, 1, 2)
+
+        outs = [conv(x) for conv in self.conv_list]
+        out = torch.cat(outs, dim=1)
+
+        out = self.proj(out)
+        out = self.activation(out)
+
+        out = out + x
+
+        out = out.permute(0, 2, 3, 1)
+        return out
+
+
+class block(nn.Module):
+    def __init__(self, seq_len, d_embd, dropout, k_periods, sigma, alpha):
+        super().__init__()
+        self.MLP = MLP(d_embd, d_embd,dropout)
+        self.MLP_film = MLP_film(d_embd, dropout)
+        self.times_conv = TimesBlockConv(d_embd)
+        self.ln = nn.LayerNorm(d_embd)
+        self.agg_MLP = MLP(k_periods*d_embd, d_embd, dropout)
+        self.proj_amp = nn.Linear(d_embd, 1)
+
+        self.d_embd = d_embd
+        self.seq_len = seq_len
+        self.k_periods = k_periods
+
+        self.sigma = sigma
+        self.alpha = alpha
+
+        # frequency vector
+        freq_bins = torch.arange(seq_len // 2 + 1)
+        self.register_buffer("freq_bins", freq_bins)
+
+        # hilbert filter
+        H = torch.zeros(seq_len)
+        H[0] = 1
+        H[1:seq_len // 2] = 2
+        H[seq_len // 2] = 1
+        self.register_buffer("hilbert_filter", H)
+
+    def forward(self, x):
+        B,T,C = x.shape
+        x_in = x
+
+        # top k frequencies
+        periods, freq_bins, amps_k_batch = self.get_periods(x)  # amps, periods, freq_bin
+
+        x_list=[]
+        amps_list=[]
+        for k in range(self.k_periods):
+            # Instant amp and freq
+            amp = self.compute_band_amplitude(x, freq_bins[k])  # (B, T, C) each
+            amps_list.append(amp)  # append amp_t tensor to collect all k
+
+            # pad dims for 2D
+            pad = (-T) % periods[k]     # pad for 1D time of period k
+            n = periods[k]              # num columns of 2D timeframe of period k
+
+            # 2D reshape
+            x_k = F.pad(x,(0, 0, 0, pad))  # (B T+pad C)
+            x_k = rearrange(x_k, 'b (m n) c -> b m n c', n=n.item())
+
+            # Conv
+            x_k = self.times_conv(x_k)
+
+            # flatten 1D
+            x_k = rearrange(x_k, 'b m n c -> b (m n) c')
+            x_k = x_k[:, :T, :]  # trunc away padded time
+            x_list.append(x_k)
+
+        x = torch.stack(x_list, dim=1)        # (B, k, T, C) each
+        amps = torch.stack(amps_list, dim=1)
+
+        # MLP
+        x = self.MLP(x)
+
+        # Adaptive Aggregation original
+        weights = F.softmax(amps_k_batch, dim=-1)  # (B k)
+        weights = rearrange(weights, 'b k -> b k 1 1')
+
+        x = x * weights
+        x = x.sum(1)
+
+        return x + x_in
+
+    def get_periods(self, x):
+        T = x.shape[1]
+
+        X_f = torch.fft.rfft(x, dim=-2)
+        X_f = X_f[:, 1:, :]  # drop row 0 -> const term
+
+        amps = torch.abs(X_f)
+        amps = torch.mean(amps, dim=-1)  # (B F)
+        amps_mean = torch.mean(amps, dim=0)
+        amps_k, freq_bin_k = torch.topk(amps_mean, k=self.k_periods)
+
+        amps_k_batch = amps[:, freq_bin_k]
+
+        freq_bin_k = freq_bin_k + 1  # row 0 = freq 0 sliced out before -> new row 0 refers to freq 1 -> shift freq_k by one
+        periods_k = T // freq_bin_k
+
+        return periods_k, freq_bin_k, amps_k_batch
+
+    def compute_band_amplitude(self, x, f0_bin):
+
+        Xf = torch.fft.rfft(x, dim=-2) # (B F C)
+        Hf = self.gaussian_bandpass(f0_bin) # (B F)
+        Hf = rearrange(Hf, 'f -> f 1')
+        Xf_filt = Hf*Xf
+        x_filt = torch.fft.irfft(Xf_filt, dim=-2) # (B T C)
+
+        # hilbert transform the filtered x
+        z = self.analytic_signal(x_filt) # (B T C)
+
+        amp_t = torch.abs(z)
+        return amp_t             # (B T C)
+
+    def gaussian_bandpass(self, f0_bin):
+        d = torch.abs(self.freq_bins - f0_bin)
+        H = torch.exp(-(d ** 2) / (2 * self.sigma ** 2)) # (F)
+        return H
+
+    def analytic_signal(self, x):
+        H = self.hilbert_filter
+        H = rearrange(H, 't -> t 1')
+        Xf = torch.fft.fft(x, dim=-2)
+        Zf = Xf * H
+        z = torch.fft.ifft(Zf, dim=-2)
+        return z
+
+class model(nn.Module):
+    def __init__(self,n_channels, seq_len, d_embd, dropout, n_timeBlocks, k_periods, sigma, alpha):
+        super().__init__()
+        self.apply(self.init_weights)
+
+        self.seq_len = seq_len
+
+        self.embd = nn.Linear(n_channels, d_embd)
+        self.ln = nn.LayerNorm(d_embd)
+        self.blocks = nn.Sequential(*[block(seq_len, d_embd, dropout, k_periods, sigma, alpha) for _ in range(n_timeBlocks)])
+        self.embd_back = nn.Linear(d_embd, n_channels)
+
+    def init_weights(self, module):
+        if isinstance(module, nn.Linear):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
+
+    def forward(self, x):
+        x = self.embd(x)
+        x = self.ln(x)
+        x = self.blocks(x)
+        pred = self.embd_back(x)  # (B, T, C)
+        return pred
+
