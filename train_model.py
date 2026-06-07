@@ -97,6 +97,8 @@ def train(train_path, val_path):
             'val':   sum(losses['val']) / len(losses['val'])
         }
 
+    print("Starting training...")
+
     for epoch in range(n_epochs):
         net.train()
         for it, (xb, yb) in enumerate(train_loader):
@@ -107,8 +109,7 @@ def train(train_path, val_path):
             loss.backward()
             optimizer.step()
             scheduler.step()
-            if it > 150:
-                break
+
 
             if it % eval_iter == 0:
                 losses = estimate_loss()
