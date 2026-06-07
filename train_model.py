@@ -51,9 +51,8 @@ class TimeSeriesDataset(Dataset):
         return x, y
 
 def train(train_path, val_path):
-    train_file = pd.read_csv(train_path, header=None)
-    val_file   = pd.read_csv(val_path,   header=None)
-    print("Script started")
+    train_file = pd.read_csv(train_path, header=None, nrows=20000)
+    val_file   = pd.read_csv(val_path,   header=None, nrows=20000)
 
     train_data = torch.tensor(train_file.values, dtype=torch.float32)
     val_data   = torch.tensor(val_file.values,   dtype=torch.float32)
