@@ -87,7 +87,9 @@ def train(train_path, val_path):
         net.eval()
         losses = {'train': [], 'val': []}
         for split, loader in [('train', train_loader), ('val', val_loader)]:
-            for xb, yb in loader:
+            for i, (xb, yb) in enumerate(loader):
+                if i > 10:
+                    break
                 xb, yb = xb.to(device), yb.to(device)
                 pred = net(xb)[:, -pred_len:, :]
                 losses[split].append(F.mse_loss(pred, yb).item())
