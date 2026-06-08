@@ -4,15 +4,15 @@ import pandas as pd
 from torch.utils.data import Dataset, DataLoader
 from times_model import times_model
 from benchmark_model import model
-from config import base_config
+from config import tuned_config as config
 from types import SimpleNamespace
 import argparse
 import os
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def save_model(net, epoch,config): #  output_path,
-    path = f'/content/drive/MyDrive/checkpoints/times_model_{epoch}.pt'
+def save_model(net,config, epoch): #  output_path,
+    path = f'/content/drive/MyDrive/checkpoints/model_checkpoint_{epoch}.pt'
     os.makedirs(os.path.dirname(path), exist_ok=True)
     #os.makedirs(os.path.dirname(output_path), exist_ok=True) + ändere scheduler
     torch.save({
@@ -59,7 +59,7 @@ def train(train_path, val_path, config):
     val_loader   = DataLoader(val_dataset,   batch_size=config.batch_size)
 
     # Model
-    net = model(
+    net = times_model(
         config.n_channels,
         config.seq_len,
         config.d_embd,
@@ -73,11 +73,11 @@ def train(train_path, val_path, config):
     # Optimizer
     optimizer = torch.optim.AdamW(net.parameters(), lr=config.lr)
 
-    total_steps = config.n_epochs * len(train_loader)
+    #total_steps = config.n_epochs * len(train_loader)
 
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer,
-        T_max=1000,
+        T_max=config.scheduler_steps,
         eta_min=config.lr_min
     )
 
@@ -106,7 +106,6 @@ def train(train_path, val_path, config):
 
     # Training
     for epoch in range(config.n_epochs):
-        save_model(net, epoch, config)
         net.train()
 
         for it, (xb, yb) in enumerate(train_loader):
@@ -126,7 +125,8 @@ def train(train_path, val_path, config):
                 l = estimate_loss()
                 print(f"epoch {epoch} step {it}: train loss {l['train']:.7f} | val loss {l['val']:.7f}")
 
-        save_model(net, epoch, config)
+    save_model(net, config, epoch)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -135,7 +135,7 @@ if __name__ == "__main__":
     #parser.add_argument('--output', required=True, help='Path to save trained model checkpoint')
     args = parser.parse_args()
 
-    train(args.train, args.val, SimpleNamespace(**base_config))   #args.output,
+    train(args.train, args.val, SimpleNamespace(**config))   #args.output,
 
 
 
