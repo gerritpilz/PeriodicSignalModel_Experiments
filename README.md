@@ -37,13 +37,13 @@ A learnable scaling factor `alpha` controls the contribution of the local weight
 The aggregated sequence is passed to the next TimesBlock, where the period detection, convolutional processing, and aggregation steps are repeated. After all TimesBlocks have been processed, the final representation is projected back to the original feature dimension to produce the forecasted time series.
 
 ## Results
-The reported RMSE values correspond to forecasting with a context length of 128 and prediction length of 32.
 
 | Model                         | Val Loss (RMSE) | Δ        |
 |-------------------------------|-----------------|----------|
 | TimesNet (baseline)           | ~0.00079        | —        |
 | + Amplitude-aware Aggregation | ~0.00066        | −16.5%   |
 | + Hyperparameter Tuning (W&B) | ~0.00063        | −4%      |
+Reported RMSE values correspond to forecasting with a context length of 128 and prediction length of 32.
 
 The results show that the amplitude-aware extension consistently improves forecasting performance compared to the baseline TimesNet model, with further gains achieved through hyperparameter tuning.
 
