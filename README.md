@@ -36,3 +36,6 @@ A learnable scaling factor `alpha` controls the contribution of the local weight
 
 The aggregated sequence is passed to the next TimesBlock, where the period detection, convolutional processing, and aggregation steps are repeated. After all TimesBlocks have been processed, the final representation is projected back to the original feature dimension to produce the forecasted time series.
 
+
+
+
