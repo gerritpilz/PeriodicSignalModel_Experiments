@@ -17,17 +17,22 @@ The resulting one‑dimensional sequence captures the relevant information of th
 Following the approach described above, the 1D time series data is transformed into  2D tensors that represent both intra- and interperiodic variations.
 Specifically, a Fourier transform is applied to the input sequence to determine a fixed number of frequencies with the highest amplitudes. For each of these dominant frequencies, the time series is then segmented into intervals corresponding to the respective period length, which are arranged row‑wise. In this 2D representation, the rows capture variations within a single period, while the columns describe variations at identical phase positions across multiple periods.
 
-The resulting 2D representations are then processed by a multi-scale convolutional block. To capture temporal patterns at different granularities, four parallel 2D convolutions are applied simultaneously — where larger kernels capture broader dependencies across periods while smaller kernels focus on fine-grained local structure. The outputs of all branches are concatenated along the channel dimension and projected back to the original model dimension. so the final output after this block is are k different 1d time series. which are processed through a mlp block
+## Convolutional Layer
+The resulting 2D representations are then processed by a multi-scale convolutional block. To capture temporal patterns at different granularities, four parallel 2D convolutions with different kernel sizes are applied. Larger kernels capture broader dependencies across periods, while smaller kernels focus on local temporal structure. The outputs of all convolution branches are concatenated, projected back to the original model dimension, and reshaped into 1D time-series representations. This produces k period-specific sequences, which are subsequently processed by an MLP block before being aggregated.
 
 ## Amplitude Filter 
 The architecture described in the TimesNet paper (https://arxiv.org/abs/2210.02186) selects dominant frequencies based on spectral amplitude, but does not model how amplitude varies over time. To adress this, I extended the model by introducing a filter block that captures variations of this kind. Specifically, for each dominant frequency, the original time series is passed through a band‑pass filter, resulting in a narrow‑band oscillatory component centered around the respective frequency. A Hilbert transform is then applied to this oscillatory mode to obtain the analytic signal, from which the instantaneous amplitude within the filter band can be derived. 
 
-## Adaptive Aggregation 
-The k sequences are merged into a single 1D output time series using a weighted sum of global and time-dependent local weights.
+## Adaptive Aggregation
 
-Global weights are the spectral amplitudes used to identify the dominant frequency components at the first step.
+After processing, the k period-specific time series are combined into a single output sequence using an adaptive weighting mechanism.
 
-Local weights are derived from the instantaneous amplitude of each component via a learned projection, allowing the model to up- or down-weight individual time steps within each sequence. A learnable scalar alpha controls the influence of the local weights relative to the global ones. The final output is the weighted sum across all k time series.
+The aggregation consists of two components:
+
+- **Global weights** are derived from the spectral amplitudes of the dominant frequency components identified during period detection. These weights determine the overall importance of each period-specific representation.
+- **Local weights** are computed from the instantaneous amplitudes of each component through a learned projection layer. This enables the model to dynamically adjust the importance of individual time steps within each sequence.
+
+A learnable scaling factor `alpha` controls the contribution of the local weights relative to the global weights. The final prediction is obtained as a weighted sum of the k processed time-series representations.
 
 
 The resulting sequence is fed into the next iteration of the block until all blocks are processed. The final output can then be used for downstream tasks, such as computing prediction logits.
