@@ -2,10 +2,11 @@ import torch
 from torch.nn import functional as F
 import pandas as pd
 from torch.utils.data import Dataset, DataLoader
-from times_model import times_model
+from times_model_wrong import times_model
 from benchmark_model import model
 from config import base_config
 from types import SimpleNamespace
+import argparse
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -23,10 +24,10 @@ class TimeSeriesDataset(Dataset):
         y = self.X[idx + self.seq_len: idx + self.seq_len + self.pred_len]
         return x, y
 
-def train(config):
+def train(train_path, val_path, config):
     # Data
-    train_file = pd.read_csv('machine-1-1_train.txt', header=None, nrows=20000)
-    val_file   = pd.read_csv('machine-1-1_val.txt',   header=None, nrows=20000)
+    train_file = pd.read_csv(train_path, header=None, nrows=20000)
+    val_file   = pd.read_csv(val_path,   header=None, nrows=20000)
 
     train_data = torch.tensor(train_file.values, dtype=torch.float32)
     val_data   = torch.tensor(val_file.values, dtype=torch.float32)
@@ -63,23 +64,26 @@ def train(config):
     @torch.no_grad()
     def estimate_loss():
         net.eval()
-        losses = []
 
-        for i, (xb, yb) in enumerate(val_loader):
+        def estimate_loss():
+            net.eval()
+            losses = {'train': [], 'val': []}
+            for split, loader in [('train', train_loader), ('val', val_loader)]:
+                for i, (xb, yb) in enumerate(loader):
 
-            if i > 4:   # for sweep
-                break
+                    if i > 4:
+                        break
 
-            xb, yb = xb.to(device), yb.to(device)
+                    xb, yb = xb.to(device), yb.to(device)
+                    pred = net(xb)[:, -config.pred_len:, :]
+                    losses[split].append(F.mse_loss(pred, yb).item())
 
-            pred = net(xb)
-            pred = pred[:, -config.pred_len:, :]
+            net.train()
 
-            loss = F.mse_loss(pred, yb)
-            losses.append(loss.item())
-
-        net.train()
-        return sum(losses) / len(losses)
+            return {
+                'train': sum(losses['train']) / len(losses['train']),
+                'val': sum(losses['val']) / len(losses['val'])
+            }
 
     # Training
     best_val = float("inf")
@@ -98,22 +102,20 @@ def train(config):
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
             optimizer.step()
-            #scheduler.step()
-
-            if it > 150:  # for sweep
-                break
+            scheduler.step()
 
             if it % config.eval_iter == 0:
-                val_loss = estimate_loss()
-                best_val = min(best_val, val_loss)
-
-                print(f"step {it}: val loss {val_loss:.4f}")
-
-    return best_val
+                l = estimate_loss()
+                print(f"step {it}: train loss {l['train']:.4f} | val loss {l['val']:.4f}")
 
 
 if __name__ == "__main__":
-    train(SimpleNamespace(**base_config))
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--train', required=True, help='Path to training CSV')
+    parser.add_argument('--val', required=True, help='Path to validation CSV')
+    args = parser.parse_args()
+
+    train(args.train, args.val, SimpleNamespace(**base_config))
 
 
 
