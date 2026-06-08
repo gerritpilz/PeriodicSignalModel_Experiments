@@ -1,7 +1,7 @@
 
 base_config = {
     # training
-    "n_epochs": 4,
+    "n_epochs": 2,
     "eval_iter": 5,
     "lr": 1e-4,
     "lr_min": 2e-5,

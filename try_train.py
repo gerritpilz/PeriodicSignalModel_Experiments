@@ -11,9 +11,10 @@ import os
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def save_model(net, epoch, config):
+def save_model(net, epoch, output_path, config):
     path = f'/content/drive/MyDrive/checkpoints/times_model_{epoch}.pt'
     os.makedirs(os.path.dirname(path), exist_ok=True)
+    #os.makedirs(os.path.dirname(output_path), exist_ok=True) + ändere scheduler
     torch.save({
         'model_state': net.state_dict(),
         'model_config': {
@@ -26,7 +27,7 @@ def save_model(net, epoch, config):
             'k_periods': config.k_periods,
             'sigma': config.sigma
         }
-    }, path)
+    }, path) #output_path
 
 class TimeSeriesDataset(Dataset):
     def __init__(self, data, seq_len, pred_len):
@@ -58,7 +59,7 @@ def train(train_path, val_path, config):
     val_loader   = DataLoader(val_dataset,   batch_size=config.batch_size)
 
     # Model
-    net = times_model(
+    net = model(
         config.n_channels,
         config.seq_len,
         config.d_embd,
@@ -129,11 +130,12 @@ def train(train_path, val_path, config):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--train', required=True, help='Path to training CSV')
-    parser.add_argument('--val', required=True, help='Path to validation CSV')
+    parser.add_argument('--train', required=True, help='Path to training file')
+    parser.add_argument('--val', required=True, help='Path to validation file')
+    parser.add_argument('--output', required=True, help='Path to save trained model checkpoint')
     args = parser.parse_args()
 
-    train(args.train, args.val, SimpleNamespace(**base_config))
+    train(args.train, args.val, args.output, SimpleNamespace(**base_config))
 
 
 
