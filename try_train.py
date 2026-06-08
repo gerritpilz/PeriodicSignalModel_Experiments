@@ -125,7 +125,7 @@ def train(train_path, val_path, config):
                 l = estimate_loss()
                 print(f"epoch {epoch} step {it}: train loss {l['train']:.7f} | val loss {l['val']:.7f}")
 
-    save_model(net, config, epoch)
+        save_model(net, config, epoch)
 
 
 if __name__ == "__main__":
