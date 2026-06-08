@@ -20,10 +20,10 @@ Specifically, a Fourier transform is applied to the input sequence to determine 
 ## Convolutional Layer
 The resulting 2D representations are then processed by a multi-scale convolutional block. To capture temporal patterns at different granularities, four parallel 2D convolutions with different kernel sizes are applied. Larger kernels capture broader dependencies across periods, while smaller kernels focus on local temporal structure. The outputs of all convolution branches are concatenated, projected back to the original model dimension, and reshaped into 1D time-series representations. This produces k period-specific sequences, which are subsequently processed by an MLP block before being aggregated.
 
-## Amplitude Filter 
+## Instantaneous Amplitude Estimation
 The architecture described in the TimesNet paper (https://arxiv.org/abs/2210.02186) selects dominant frequencies based on spectral amplitude, but does not model how amplitude varies over time. To adress this, I extended the model by introducing a filter block that captures variations of this kind. Specifically, for each dominant frequency, the original time series is passed through a band‑pass filter, resulting in a narrow‑band oscillatory component centered around the respective frequency. A Hilbert transform is then applied to this oscillatory mode to obtain the analytic signal, from which the instantaneous amplitude within the filter band can be derived. 
 
-## Adaptive Aggregation
+## Amplitude-aware Adaptive Aggregation
 
 After processing, the k period-specific time series are combined into a single output sequence using an adaptive weighting mechanism.
 
@@ -36,32 +36,62 @@ A learnable scaling factor `alpha` controls the contribution of the local weight
 
 The aggregated sequence is passed to the next TimesBlock, where the period detection, convolutional processing, and aggregation steps are repeated. After all TimesBlocks have been processed, the final representation is projected back to the original feature dimension to produce the forecasted time series.
 
-val loss with alpha: 0.0009
 ## Results
 
-| Model                        | Val Loss (RMSE) | Δ        |
-|------------------------------|-----------------|----------|
-| TimesNet (baseline)          | ~X              | —        |
-| + Amplitude Filter           | ~X              | −X%      |
-| + Hyperparameter Tuning (W&B)| ~X              | −Y%      |
+| Model                         | Val Loss (RMSE) | Δ        |
+|-------------------------------|-----------------|----------|
+| TimesNet (baseline)           | ~X              | —        |
+| + Amplitude-aware Aggregation | ~0.00066        | −X%      |
+| + Hyperparameter Tuning (W&B) | ~X              | −Y%      |
 
-## Usage
+The dataset is derived from the OmniAnomaly benchmark dataset (NetManAIOps), specifically using the Machine-1-1 subset. 
+
+The default configuration in the training pipeline corresponds to the best-performing model (amplitude-aware + tuned setup) and is directly integrated into the codebase.
+The `experiments/` directory contains all experimental artifacts, including:
+
+- Baseline TimesNet model checkpoint  
+- Amplitude-aware pre tuning model checkpoint  
+- Hyperparameter-tuned amplitude-aware model checkpoint (best model)  
+- Pre-tuning configuration files  
+- The dataset used for training and evaluation
+
+## How to Use
 
 ### Training
+The training script trains the model on the provided dataset and saves a trained checkpoint to disk. Hyperparameters can be modified via the configuration file `config.py`.
+The output is a model checkpoint file containing the learned weights and model configuration.
+
 ```bash
 python train.py \
-  --train data/machine-1-1_train.txt \
-  --val   data/machine-1-1_val.txt
+  --train <path_to_train_dataset_file> \
+  --val   <path_to_val_dataset_file>
+```
+
+Example:
+```bash
+python train.py \
+  --train dataset/machine-1-1_train.txt \
+  --val   dataset/machine-1-1_val.txt
 ```
 
 ### Inference
+The inference script loads a trained model checkpoint and generates predictions on unseen data.
+
+The output is a file containing the forecasted time series predictions.
+
 ```bash
 python predict.py \
-  --data       data/machine-1-1_val.txt \
+  --data <path_to_input_dataset_file> \
+  --checkpoint <path_to_trained_model_checkpoint> \
+  --output <path_to_output_file>
+```
+
+Example:
+```bash
+python predict.py \
+  --data       dataset/machine-1-1_val.txt \
   --checkpoint checkpoints/model.pt \
   --output     results/predictions.csv
 ```
 
-## Dataset
-Evaluated on the SMD `machine-1-1` split. Place `machine-1-1_train.txt` and `machine-1-1_val.txt` in the `data/` directory.
 
