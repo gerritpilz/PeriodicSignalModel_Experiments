@@ -42,7 +42,7 @@ The aggregated sequence is passed to the next TimesBlock, where the period detec
 |-------------------------------|-----------------|----------|
 | TimesNet (baseline)           | ~0.00079        | —        |
 | + Amplitude-aware Aggregation | ~0.00066        | −16.5%   |
-| + Hyperparameter Tuning (W&B) | ~X              | −Y%      |
+| + Hyperparameter Tuning (W&B) | ~0.00063        | −4%      |
 
 The results show that the amplitude-aware extension consistently improves forecasting performance compared to the baseline TimesNet model, with further gains achieved through hyperparameter tuning.
 
