@@ -3,8 +3,8 @@ from torch.nn import functional as F
 import pandas as pd
 from torch.utils.data import Dataset, DataLoader
 import wandb
-from model import model
-from config import base_config, sweep_config
+from times_model import model
+from config_v1 import base_config, sweep_config
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

@@ -3,18 +3,15 @@ from torch.nn import functional as F
 import pandas as pd
 from torch.utils.data import Dataset, DataLoader
 from times_model import times_model
-from benchmark_model import model
-from config import tuned_config as config
+from config import config
 from types import SimpleNamespace
 import argparse
 import os
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def save_model(net,config, epoch): #  output_path,
-    path = f'/content/drive/MyDrive/checkpoints/model_checkpoint_{epoch}.pt'
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    #os.makedirs(os.path.dirname(output_path), exist_ok=True) + ändere scheduler
+def save_model(net, config, output_path):
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
     torch.save({
         'model_state': net.state_dict(),
         'model_config': {
@@ -27,7 +24,7 @@ def save_model(net,config, epoch): #  output_path,
             'k_periods': config.k_periods,
             'sigma': config.sigma
         }
-    }, path) #output_path
+    }, output_path)
 
 class TimeSeriesDataset(Dataset):
     def __init__(self, data, seq_len, pred_len):
@@ -43,7 +40,7 @@ class TimeSeriesDataset(Dataset):
         y = self.X[idx + self.seq_len: idx + self.seq_len + self.pred_len]
         return x, y
 
-def train(train_path, val_path, config):
+def train(train_path, val_path, output_path, config):
     # Data
     train_file = pd.read_csv(train_path, header=None, nrows=20000)
     val_file   = pd.read_csv(val_path,   header=None, nrows=20000)
@@ -72,8 +69,6 @@ def train(train_path, val_path, config):
 
     # Optimizer
     optimizer = torch.optim.AdamW(net.parameters(), lr=config.lr)
-
-    #total_steps = config.n_epochs * len(train_loader)
 
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer,
@@ -125,17 +120,17 @@ def train(train_path, val_path, config):
                 l = estimate_loss()
                 print(f"epoch {epoch} step {it}: train loss {l['train']:.7f} | val loss {l['val']:.7f}")
 
-        save_model(net, config, epoch)
+    save_model(net, config, output_path)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--train', required=True, help='Path to training file')
     parser.add_argument('--val', required=True, help='Path to validation file')
-    #parser.add_argument('--output', required=True, help='Path to save trained model checkpoint')
+    parser.add_argument('--output', required=True, help='Path to save trained model checkpoint')
     args = parser.parse_args()
 
-    train(args.train, args.val, SimpleNamespace(**config))   #args.output,
+    train(args.train, args.val, args.output, SimpleNamespace(**config))
 
 
 
