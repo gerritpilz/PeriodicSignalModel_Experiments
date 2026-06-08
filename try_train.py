@@ -76,7 +76,7 @@ def train(train_path, val_path, config):
 
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer,
-        T_max=total_steps,
+        T_max=1000,
         eta_min=config.lr_min
     )
 
