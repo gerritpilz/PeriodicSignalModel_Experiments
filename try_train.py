@@ -2,13 +2,31 @@ import torch
 from torch.nn import functional as F
 import pandas as pd
 from torch.utils.data import Dataset, DataLoader
-from times_model_wrong import times_model
+from times_model import times_model
 from benchmark_model import model
 from config import base_config
 from types import SimpleNamespace
 import argparse
+import os
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+def save_model(net, epoch, config):
+    path = f'/content/drive/MyDrive/checkpoints/times_model_{epoch}.pt'
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    torch.save({
+        'model_state': net.state_dict(),
+        'model_config': {
+            'n_channels': config.n_channels,
+            'seq_len': config.seq_len,
+            'pred_len': config.pred_len,
+            'd_embd': config.d_embd,
+            'dropout':  config.dropout,
+            'n_timeBlocks': config.n_timeBlocks,
+            'k_periods': config.k_periods,
+            'sigma': config.sigma
+        }
+    }, path)
 
 class TimeSeriesDataset(Dataset):
     def __init__(self, data, seq_len, pred_len):
@@ -87,6 +105,7 @@ def train(train_path, val_path, config):
     best_val = float("inf")
 
     for epoch in range(config.n_epochs):
+        save_model(net, epoch, config)
         net.train()
 
         for it, (xb, yb) in enumerate(train_loader):
@@ -106,6 +125,7 @@ def train(train_path, val_path, config):
                 l = estimate_loss()
                 print(f"epoch {epoch} step {it}: train loss {l['train']:.4f} | val loss {l['val']:.4f}")
 
+        save_model(net, epoch, config)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
