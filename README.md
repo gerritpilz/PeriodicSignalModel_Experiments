@@ -74,8 +74,8 @@ python train.py \
 Example:
 ```bash
 python train.py \
-  --train dataset/machine-1-1_train.txt \
-  --val   dataset/machine-1-1_val.txt
+  --train experiments/dataset/machine-1-1_train.txt \
+  --val   experiments/dataset/machine-1-1_val.txt
 ```
 
 ### Inference
@@ -93,8 +93,8 @@ python predict.py \
 Example:
 ```bash
 python predict.py \
-  --data       dataset/machine-1-1_val.txt \
-  --checkpoint checkpoints/model.pt \
+  --data       experiments/dataset/machine-1-1_val.txt \
+  --checkpoint experiments/checkpoints/amplitude_aware_tuned_checkpoint.pt \
   --output     results/predictions.csv
 ```
 
