@@ -36,6 +36,32 @@ A learnable scaling factor `alpha` controls the contribution of the local weight
 
 The aggregated sequence is passed to the next TimesBlock, where the period detection, convolutional processing, and aggregation steps are repeated. After all TimesBlocks have been processed, the final representation is projected back to the original feature dimension to produce the forecasted time series.
 
+val loss with alpha: 0.0009
+## Results
 
+| Model                        | Val Loss (RMSE) | Δ        |
+|------------------------------|-----------------|----------|
+| TimesNet (baseline)          | ~X              | —        |
+| + Amplitude Filter           | ~X              | −X%      |
+| + Hyperparameter Tuning (W&B)| ~X              | −Y%      |
 
+## Usage
+
+### Training
+```bash
+python train.py \
+  --train data/machine-1-1_train.txt \
+  --val   data/machine-1-1_val.txt
+```
+
+### Inference
+```bash
+python predict.py \
+  --data       data/machine-1-1_val.txt \
+  --checkpoint checkpoints/model.pt \
+  --output     results/predictions.csv
+```
+
+## Dataset
+Evaluated on the SMD `machine-1-1` split. Place `machine-1-1_train.txt` and `machine-1-1_val.txt` in the `data/` directory.
 
