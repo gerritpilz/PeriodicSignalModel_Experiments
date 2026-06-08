@@ -44,16 +44,19 @@ The aggregated sequence is passed to the next TimesBlock, where the period detec
 | + Amplitude-aware Aggregation | ~0.00066        | −X%      |
 | + Hyperparameter Tuning (W&B) | ~X              | −Y%      |
 
-The dataset is derived from the OmniAnomaly benchmark dataset (NetManAIOps), specifically using the Machine-1-1 subset. 
+The results show that the amplitude-aware extension consistently improves forecasting performance compared to the baseline TimesNet model, with further gains achieved through hyperparameter tuning.
 
-The default configuration in the training pipeline corresponds to the best-performing model (amplitude-aware + tuned setup) and is directly integrated into the codebase.
+The dataset is based on the [OmniAnomaly](https://github.com/NetManAIOps/OmniAnomaly) benchmark dataset, using the Machine-1-1 server telemetry subset for training and evaluation.
+
+The default training configuration corresponds to the best-performing setup (amplitude-aware + hyperparameter-tuned model) and is integrated directly into the training pipeline.
+
 The `experiments/` directory contains all experimental artifacts, including:
+- a TimesNet baseline checkpoint
+- an amplitude-aware pre-tuning checkpoint
+- a hyperparameter-tuned amplitude-aware checkpoint
+- the training and evaluation dataset
 
-- Baseline TimesNet model checkpoint  
-- Amplitude-aware pre tuning model checkpoint  
-- Hyperparameter-tuned amplitude-aware model checkpoint (best model)  
-- Pre-tuning configuration files  
-- The dataset used for training and evaluation
+
 
 ## How to Use
 
