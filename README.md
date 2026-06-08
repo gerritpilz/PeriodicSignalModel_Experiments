@@ -6,10 +6,9 @@ This project extends the TimesNet architecture for multivariate time-series fore
 
 The model first converts 1D time-series data into multiple 2D period-based representations using frequency analysis. These representations are processed with multi-scale convolutions to learn temporal patterns at different resolutions.
 
-To capture changes in the strength of periodic components over time, the architecture introduces an amplitude-aware extension based on band-pass filtering and Hilbert transforms. The extracted amplitude information is then used in an adaptive aggregation mechanism that dynamically weights different periodic representations during prediction.
+To capture changes in the strength of periodic components over time, the original architecture is extended with an amplitude-aware mechanism based on band-pass filtering and Hilbert transforms. The extracted amplitude information is then used in an adaptive aggregation mechanism that dynamically weights different periodic representations during prediction.
 
-The approach is evaluated on the OmniAnomaly benchmark dataset and achieves improved forecasting performance compared to the baseline TimesNet model.
-
+The approach is evaluated on the OmniAnomaly benchmark dataset for server telemetry forecasting and achieves improved forecasting performance compared to the baseline TimesNet model.
 
 ## Model Architecture
 
