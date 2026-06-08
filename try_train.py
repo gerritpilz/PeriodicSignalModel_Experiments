@@ -11,7 +11,7 @@ import os
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def save_model(net, epoch, output_path, config):
+def save_model(net, epoch,config): #  output_path,
     path = f'/content/drive/MyDrive/checkpoints/times_model_{epoch}.pt'
     os.makedirs(os.path.dirname(path), exist_ok=True)
     #os.makedirs(os.path.dirname(output_path), exist_ok=True) + ändere scheduler
@@ -132,10 +132,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--train', required=True, help='Path to training file')
     parser.add_argument('--val', required=True, help='Path to validation file')
-    parser.add_argument('--output', required=True, help='Path to save trained model checkpoint')
+    #parser.add_argument('--output', required=True, help='Path to save trained model checkpoint')
     args = parser.parse_args()
 
-    train(args.train, args.val, args.output, SimpleNamespace(**base_config))
+    train(args.train, args.val, SimpleNamespace(**base_config))   #args.output,
 
 
 
