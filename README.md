@@ -40,7 +40,7 @@ The aggregated sequence is passed to the next TimesBlock, where the period detec
 
 | Model                         | Val Loss (RMSE) | Δ        |
 |-------------------------------|-----------------|----------|
-| TimesNet (baseline)           | ~X              | —        |
+| TimesNet (baseline)           | ~0.00079        | —        |
 | + Amplitude-aware Aggregation | ~0.00066        | −X%      |
 | + Hyperparameter Tuning (W&B) | ~X              | −Y%      |
 
