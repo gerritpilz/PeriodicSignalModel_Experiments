@@ -17,13 +17,13 @@ The approach is evaluated on the OmniAnomaly benchmark dataset for server teleme
 Following the approach described above, the 1D time series data is transformed into  2D tensors that represent both intra- and interperiodic variations.
 Specifically, a Fourier transform is applied to the input sequence to determine a fixed number of frequencies with the highest amplitudes. For each of these dominant frequencies, the time series is then segmented into intervals corresponding to the respective period length, which are arranged row‑wise. In this 2D representation, the rows capture variations within a single period, while the columns describe variations at identical phase positions across multiple periods.
 
-## Convolutional Layer
+### Convolutional Layer
 The resulting 2D representations are then processed by a multi-scale convolutional block. To capture temporal patterns at different granularities, four parallel 2D convolutions with different kernel sizes are applied. Larger kernels capture broader dependencies across periods, while smaller kernels focus on local temporal structure. The outputs of all convolution branches are concatenated, projected back to the original model dimension, and reshaped into 1D time-series representations. This produces k period-specific sequences, which are subsequently processed by an MLP block before being aggregated.
 
-## Instantaneous Amplitude Estimation
+### Instantaneous Amplitude Estimation
 The architecture described in the TimesNet paper (https://arxiv.org/abs/2210.02186) selects dominant frequencies based on spectral amplitude, but does not model how amplitude varies over time. To adress this, I extended the model by introducing a filter block that captures variations of this kind. Specifically, for each dominant frequency, the original time series is passed through a band‑pass filter, resulting in a narrow‑band oscillatory component centered around the respective frequency. A Hilbert transform is then applied to this oscillatory mode to obtain the analytic signal, from which the instantaneous amplitude within the filter band can be derived. 
 
-## Amplitude-aware Adaptive Aggregation
+### Amplitude-Aware Adaptive Aggregation
 
 After processing, the k period-specific time series are combined into a single output sequence using an adaptive weighting mechanism.
 
