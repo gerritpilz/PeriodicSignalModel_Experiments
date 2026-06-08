@@ -42,7 +42,7 @@ The aggregated sequence is passed to the next TimesBlock, where the period detec
 |-------------------------------|-----------------|----------|
 | TimesNet (baseline)           | ~0.00079        | —        |
 | + Amplitude-aware Aggregation | ~0.00066        | −16.5%   |
-| + Hyperparameter Tuning (W&B) | ~0.00063        | −4%      |
+| + Hyperparameter Tuning (W&B) | ~0.00064        | −4%      |
 
 Reported RMSE values correspond to forecasting with a context length of 128 and prediction length of 32.
 
