@@ -6,9 +6,9 @@ Time series analysis plays a central role in a wide range of applications, where
 
 Motivated by the observation that many time series exhibit multiple underlying periodic structures, the temporal dynamics are decomposed into intra‑periodic variations (within a single peroid) and inter‑periodic variations (across periods at the same phase). To better expose these structures, the one‑dimensional time series is transformed into a set of two‑dimensional representations based on dominant periods, where rows and columns explicitly encode the two types of variation. This transformation embeds intra‑periodic and inter‑periodic variations into the columns and rows of the 2D tensors, respectively.
 
-The resulting 2D representations are processed by a multi-scale convolutional block that captures both local and broader temporal dependencies before being projected back to the original model dimension.
+The resulting 2D representations are processed by a multi-scale convolutional block that captures both local and broader temporal dependencies before being projected back and adaptively aggregated across multiple period-specific representations.
 
-The resulting one‑dimensional sequence captures the relevant information of the original signal. In this work, the model is applied to forecasting on server machine data, though it naturally extends to a range of other time series tasks, including classification and anomaly detection.
+The resulting one-dimensional sequence captures the relevant information of the original signal. In this work, the model is used for forecasting server machine time series data, focusing on accurate prediction of future system behaviour.
 
 ## Model Architecture
 
@@ -34,13 +34,5 @@ The aggregation consists of two components:
 
 A learnable scaling factor `alpha` controls the contribution of the local weights relative to the global weights. The final prediction is obtained as a weighted sum of the k processed time-series representations.
 
+The aggregated sequence is passed to the next TimesBlock, where the period detection, convolutional processing, and aggregation steps are repeated. After all TimesBlocks have been processed, the final representation is projected back to the original feature dimension to produce the forecasted time series.
 
-The resulting sequence is fed into the next iteration of the block until all blocks are processed. The final output can then be used for downstream tasks, such as computing prediction logits.
-
-
-
-## Tasks and Use Case
-
-The proposed architecture is designed as a general representation learning framework for time series analysis. It supports a range of downstream tasks, including forecasting, imputation, classification, and anomaly detection.
-
-In this work, the framework is applied to weather time series forecasting. Multiple variables are modeled simultaneously, allowing the joint prediction of channels such as temperature, humidity, and related meteorological signals.
