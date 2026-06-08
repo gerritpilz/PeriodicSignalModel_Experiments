@@ -54,7 +54,6 @@ The default training configuration corresponds to the best-performing setup (amp
 
 The `experiments/` directory contains all experimental artifacts, including:
 - a TimesNet baseline checkpoint
-- an amplitude-aware pre-tuning checkpoint
 - a hyperparameter-tuned amplitude-aware checkpoint
 - the training and evaluation dataset
 
