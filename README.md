@@ -62,7 +62,7 @@ The `experiments/` directory contains all experimental artifacts, including:
 ## How to Use
 
 ### Training
-The training script trains the model on the provided dataset and saves a trained checkpoint to disk. Hyperparameters can be modified via the configuration file `config.py`.
+The training script trains the model on the provided dataset and saves a trained checkpoint to disk. Hyperparameters can be modified via the configuration file `model/config.py`.
 The output is a model checkpoint file containing the learned weights and model configuration.
 
 ```bash
