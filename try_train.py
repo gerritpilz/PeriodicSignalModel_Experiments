@@ -72,9 +72,11 @@ def train(train_path, val_path, config):
     # Optimizer
     optimizer = torch.optim.AdamW(net.parameters(), lr=config.lr)
 
+    total_steps = config.n_epochs * len(train_loader)
+
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer,
-        T_max=config.scheduler_steps,
+        T_max=total_steps,
         eta_min=config.lr_min
     )
 
@@ -102,8 +104,6 @@ def train(train_path, val_path, config):
         }
 
     # Training
-    best_val = float("inf")
-
     for epoch in range(config.n_epochs):
         save_model(net, epoch, config)
         net.train()
@@ -123,7 +123,7 @@ def train(train_path, val_path, config):
 
             if it % config.eval_iter == 0:
                 l = estimate_loss()
-                print(f"epoch {epoch} step {it}: train loss {l['train']:.4f} | val loss {l['val']:.4f}")
+                print(f"epoch {epoch} step {it}: train loss {l['train']:.7f} | val loss {l['val']:.7f}")
 
         save_model(net, epoch, config)
 
