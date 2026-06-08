@@ -2,13 +2,14 @@
 
 ## Overview
 
-Time series analysis plays a central role in a wide range of applications, where modeling complex temporal variations remains a fundamental challenge. Directly learning these variations from one‑dimensional sequences is difficult due to intricate temporal patterns. 
+This project extends the TimesNet architecture for multivariate time-series forecasting by improving how periodic patterns are represented and combined over time.
 
-Motivated by the observation that many time series exhibit multiple underlying periodic structures, the temporal dynamics are decomposed into intra‑periodic variations (within a single peroid) and inter‑periodic variations (across periods at the same phase). To better expose these structures, the one‑dimensional time series is transformed into a set of two‑dimensional representations based on dominant periods, where rows and columns explicitly encode the two types of variation. This transformation embeds intra‑periodic and inter‑periodic variations into the columns and rows of the 2D tensors, respectively.
+The model first converts 1D time-series data into multiple 2D period-based representations using frequency analysis. These representations are processed with multi-scale convolutions to learn temporal patterns at different resolutions.
 
-The resulting 2D representations are processed by a multi-scale convolutional block that captures both local and broader temporal dependencies before being projected back and adaptively aggregated across multiple period-specific representations.
+To capture changes in the strength of periodic components over time, the architecture introduces an amplitude-aware extension based on band-pass filtering and Hilbert transforms. The extracted amplitude information is then used in an adaptive aggregation mechanism that dynamically weights different periodic representations during prediction.
 
-The resulting one-dimensional sequence captures the relevant information of the original signal. In this work, the model is used for forecasting server machine time series data, focusing on accurate prediction of future system behaviour.
+The approach is evaluated on the OmniAnomaly benchmark dataset and achieves improved forecasting performance compared to the baseline TimesNet model.
+
 
 ## Model Architecture
 
