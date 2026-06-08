@@ -37,6 +37,7 @@ A learnable scaling factor `alpha` controls the contribution of the local weight
 The aggregated sequence is passed to the next TimesBlock, where the period detection, convolutional processing, and aggregation steps are repeated. After all TimesBlocks have been processed, the final representation is projected back to the original feature dimension to produce the forecasted time series.
 
 ## Results
+The reported RMSE values correspond to forecasting with a context length of 128 and prediction length of 32.
 
 | Model                         | Val Loss (RMSE) | Δ        |
 |-------------------------------|-----------------|----------|
